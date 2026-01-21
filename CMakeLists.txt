@@ -1,5 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
 
-project(liteDui VERSION 0.1.0 LANGUAGES CXX)
+project(liteDui LANGUAGES CXX)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 17)
@@ -27,8 +28,8 @@ find_package(PkgConfig REQUIRED)
 option(BUILD_YOGA "Build yoga library from source" ON)
 if(BUILD_YOGA)
     # 构建yoga库
-    add_subdirectory(third-parts/yoga yoga_build)
-    
+    add_subdirectory(third-party/yoga yoga_build)
+
     # 创建yoga的别名，方便其他target使用
     add_library(yoga::yoga ALIAS yogacore)
 else()
@@ -36,8 +37,15 @@ else()
     find_package(yoga REQUIRED)
 endif()
 
-# 包含src子目录来构建sgui库
-add_subdirectory(src)
+# 查找GLFW
+pkg_check_modules(GLFW REQUIRED glfw3)
+
+# 将src中所有文件编译为一个library
+file(GLOB_RECURSE LITEDUI_SOURCES "src/*.cpp")
+add_library(litedui ${LITEDUI_SOURCES})
+target_include_directories(litedui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(litedui PUBLIC yoga::yoga ${GLFW_LIBRARIES})
+target_include_directories(litedui PUBLIC ${GLFW_INCLUDE_DIRS})
 
 # 示例程序
 add_subdirectory(examples)
