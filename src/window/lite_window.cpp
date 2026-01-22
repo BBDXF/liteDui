@@ -67,11 +67,10 @@ bool LiteWindow::Initialize()
     glfwSetKeyCallback(window_, KeyCallback);
     glfwSetCharCallback(window_, CharCallback);
 
-    // 获取窗口ID并创建Skia渲染器
-    void *windowId = getWindowId();
-    if (windowId)
+    // 创建Skia渲染器，直接传递 GLFWwindow*
+    if (window_)
     {
-        skiaRenderer_ = std::make_unique<liteDui::LiteSkiaRenderer>(windowId, width_, height_);
+        skiaRenderer_ = std::make_unique<liteDui::LiteSkiaRenderer>(window_, width_, height_);
         std::cout << "Created Skia renderer for window: " << title_ << std::endl;
     }
     else
@@ -260,6 +259,7 @@ void LiteWindow::ScrollCallback(GLFWwindow *window, double xoffset, double yoffs
 {
 }
 
+// 处理用户按键输入
 void LiteWindow::KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
     auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
@@ -274,15 +274,13 @@ void LiteWindow::KeyCallback(GLFWwindow *window, int key, int scancode, int acti
     }
 }
 
+// 处理用户输入法等Unicode输入
 void LiteWindow::CharCallback(GLFWwindow *window, unsigned int codepoint)
 {
     auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
     if (win && win->rootContainer_ && g_lastMouseInsideContainer)
     {
-        liteDui::KeyEvent event;
-        event.codepoint = codepoint;
-        event.pressed = true;
-        g_lastMouseInsideContainer->onKeyPressed(event);
+        g_lastMouseInsideContainer->onCharInput(codepoint);
     }
 }
 

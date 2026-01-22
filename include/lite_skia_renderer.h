@@ -22,7 +22,7 @@ class LiteSkiaRenderer {
 public:
     /**
      * 构造函数
-     * @param windowId 窗口ID (GLFWwindow*)
+     * @param windowId 窗口指针 (GLFWwindow*)
      * @param width 渲染器宽度
      * @param height 渲染器高度
      */
@@ -63,7 +63,7 @@ public:
     void end();
 
 private:
-    void* m_windowId;  // GLFWwindow*
+    void* m_windowId;  // 存储 GLFWwindow* 指针
     int m_width;
     int m_height;
     

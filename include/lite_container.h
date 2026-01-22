@@ -53,6 +53,7 @@ public:
     virtual void onMouseEntered(const MouseEvent& event) {}
     virtual void onMouseExited(const MouseEvent& event) {}
     virtual void onKeyPressed(const KeyEvent& event) {}
+    virtual void onCharInput(unsigned int codepoint) {}
 
 protected:
     void drawBackground(SkCanvas* canvas, float x, float y, float w, float h);

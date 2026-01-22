@@ -178,15 +178,28 @@ float LiteInput::measureTextWidth(const SkFont& font, const std::string& text) c
     return font.measureText(text.c_str(), text.length(), SkTextEncoding::kUTF8);
 }
 
-// 计算每个字符的 X 位置（累积宽度）
+// 计算每个字节位置的 X 坐标（按 UTF-8 字符边界）
 std::vector<float> LiteInput::getCharPositions(const SkFont& font, const std::string& text) const {
-    std::vector<float> positions;
-    positions.reserve(text.length() + 1);
-    positions.push_back(0);
+    std::vector<float> positions(text.length() + 1, 0);
     
-    for (size_t i = 0; i < text.length(); ++i) {
-        float width = font.measureText(text.c_str(), i + 1, SkTextEncoding::kUTF8);
-        positions.push_back(width);
+    size_t i = 0;
+    while (i < text.length()) {
+        // 确定 UTF-8 字符的字节数
+        unsigned char c = text[i];
+        size_t charLen = 1;
+        if ((c & 0x80) == 0) charLen = 1;
+        else if ((c & 0xE0) == 0xC0) charLen = 2;
+        else if ((c & 0xF0) == 0xE0) charLen = 3;
+        else if ((c & 0xF8) == 0xF0) charLen = 4;
+        
+        size_t nextPos = std::min(i + charLen, text.length());
+        float width = font.measureText(text.c_str(), nextPos, SkTextEncoding::kUTF8);
+        
+        // 填充该字符所有字节位置为相同宽度
+        for (size_t j = i + 1; j <= nextPos; ++j) {
+            positions[j] = width;
+        }
+        i = nextPos;
     }
     return positions;
 }
@@ -228,18 +241,36 @@ void LiteInput::ensureCursorVisible(const SkFont& font, float visibleWidth) {
 
 void LiteInput::handleCharInput(unsigned int codepoint) {
     if (m_state != ControlState::Focused || m_readOnly) return;
-    if (codepoint < 32 || codepoint == 127) return;
+    // if (codepoint < 32 || codepoint == 127) return;
     
-    char c = static_cast<char>(codepoint);
     if (m_inputType == InputType::Number) {
-        if (!std::isdigit(c) && c != '-' && c != '.') return;
+        if (codepoint > 127 || (!std::isdigit(codepoint) && codepoint != '-' && codepoint != '.')) return;
     }
     
-    insertText(std::string(1, c));
+    // Unicode codepoint 转 UTF-8
+    std::string utf8;
+    if (codepoint < 0x80) {
+        utf8 = static_cast<char>(codepoint);
+    } else if (codepoint < 0x800) {
+        utf8 += static_cast<char>(0xC0 | (codepoint >> 6));
+        utf8 += static_cast<char>(0x80 | (codepoint & 0x3F));
+    } else if (codepoint < 0x10000) {
+        utf8 += static_cast<char>(0xE0 | (codepoint >> 12));
+        utf8 += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+        utf8 += static_cast<char>(0x80 | (codepoint & 0x3F));
+    } else {
+        utf8 += static_cast<char>(0xF0 | (codepoint >> 18));
+        utf8 += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+        utf8 += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+        utf8 += static_cast<char>(0x80 | (codepoint & 0x3F));
+    }
+    
+    insertText(utf8);
 }
 
 void LiteInput::handleSpecialKey(const KeyEvent& event) {
     bool shift = event.mods & 1; // Shift 键
+    if(!event.pressed) return;
     
     switch (event.keyCode) {
     case 259: // Backspace
@@ -441,12 +472,14 @@ void LiteInput::onMouseReleased(const MouseEvent& event) {
 
 void LiteInput::onKeyPressed(const KeyEvent& event) {
     if (m_state == ControlState::Disabled || m_readOnly) return;
-    
-    if (event.codepoint > 0) {
-        handleCharInput(event.codepoint);
-    } else {
-        handleSpecialKey(event);
-    }
+    printf("KeyPressed: %d, %d\n", event.keyCode, event.pressed);
+    handleSpecialKey(event);
+}
+
+void LiteInput::onCharInput(unsigned int codepoint) {
+    if (m_state != ControlState::Focused || m_readOnly) return;
+    printf("CharInput: %d\n", codepoint);
+    handleCharInput(codepoint);
 }
 
 } // namespace liteDui
