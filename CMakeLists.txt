@@ -28,7 +28,7 @@ find_package(PkgConfig REQUIRED)
 option(BUILD_YOGA "Build yoga library from source" ON)
 if(BUILD_YOGA)
     # 构建yoga库
-    add_subdirectory(third-party/yoga yoga_build)
+    add_subdirectory(third-party/yoga)
 
     # 创建yoga的别名，方便其他target使用
     add_library(yoga::yoga ALIAS yogacore)
@@ -40,11 +40,45 @@ endif()
 # 查找GLFW
 pkg_check_modules(GLFW REQUIRED glfw3)
 
+# Skia 配置
+set(SKIA_DIR ${CMAKE_SOURCE_DIR}/third-party/skia)
+set(SKIA_OUT ${SKIA_DIR}/out/Release-x64)
+
+# 包含 Skia 定义
+if(EXISTS ${SKIA_OUT}/defines.cmake)
+    include(${SKIA_OUT}/defines.cmake)
+endif()
+
 # 将src中所有文件编译为一个library
 file(GLOB_RECURSE LITEDUI_SOURCES "src/*.cpp")
 add_library(litedui ${LITEDUI_SOURCES})
-target_include_directories(litedui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(litedui PUBLIC yoga::yoga ${GLFW_LIBRARIES})
+target_include_directories(litedui PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${SKIA_DIR}
+)
+target_link_libraries(litedui PUBLIC 
+    yoga::yoga 
+    ${GLFW_LIBRARIES}
+    ${SKIA_OUT}/libskparagraph.a
+    ${SKIA_OUT}/libskshaper.a
+    ${SKIA_OUT}/libskunicode_core.a
+    ${SKIA_OUT}/libskunicode_icu.a
+    ${SKIA_OUT}/libskia.a
+    ${SKIA_OUT}/libpng.a
+    ${SKIA_OUT}/libzlib.a
+    ${SKIA_OUT}/libharfbuzz.a
+    ${SKIA_OUT}/libicu.a
+    ${SKIA_OUT}/libskcms.a
+    ${SKIA_OUT}/libwebp.a
+    ${SKIA_OUT}/libwuffs.a
+    ${SKIA_OUT}/libjpeg.a
+    fontconfig
+    freetype
+    GL
+    EGL
+    pthread
+    dl
+)
 target_include_directories(litedui PUBLIC ${GLFW_INCLUDE_DIRS})
 
 # 示例程序

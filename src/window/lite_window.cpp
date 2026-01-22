@@ -1,21 +1,24 @@
 /**
- * LiteWindow.cpp - 使用简化Cairo渲染器的窗口实现
+ * LiteWindow.cpp - 使用Skia渲染器的窗口实现
  */
 
 #include "lite_window.h"
+#include "lite_skia_renderer.h"
+#include "lite_container.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <thread>
 #include <chrono>
 
-// 为了使用glfwGetX11Window函数，需要包含GLFW的头文件
+// 为了使用native相关函数，需要包含GLFW的头文件
 #ifdef __linux__
 #include <X11/Xlib.h>
 #define GLFW_EXPOSE_NATIVE_X11
 #endif
+#ifdef _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#endif
 #include <GLFW/glfw3native.h>
-
-// LiteWindow类的实现
 
 namespace liteDui
 {
@@ -23,7 +26,6 @@ namespace liteDui
 LiteWindow::LiteWindow(int width, int height, const char *title, LiteWindowManager *manager)
     : width_(width), height_(height), title_(title), manager_(manager), window_(nullptr)
 {
-    // 注意：CairoRenderer需要在窗口创建后才能初始化
 }
 
 LiteWindow::~LiteWindow()
@@ -36,8 +38,13 @@ LiteWindow::~LiteWindow()
 
 bool LiteWindow::Initialize()
 {
-    // 设置窗口提示，不创建OpenGL上下文
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    // 设置窗口提示：启用 OpenGL
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
 
     // 创建窗口
     window_ = glfwCreateWindow(width_, height_, title_, nullptr, nullptr);
@@ -49,22 +56,29 @@ bool LiteWindow::Initialize()
 
     // 设置窗口回调
     glfwSetWindowUserPointer(window_, this);
+    glfwMakeContextCurrent(window_);
     glfwSetWindowSizeCallback(window_, WindowSizeCallback);
     glfwSetWindowCloseCallback(window_, WindowCloseCallback);
 
-    // 获取窗口ID并创建简化的Cairo渲染器
-    // 注意：这里暂时注释掉Cairo渲染器，因为还没有实现
-    // void *windowId = getWindowId();
-    // if (windowId)
-    // {
-    //     cairoRenderer_ = std::make_unique<liteDui::LiteCairoRenderer>(windowId, width_, height_);
-    //     std::cout << "Created simplified Cairo renderer for window: " << title_ << std::endl;
-    // }
-    // else
-    // {
-    //     std::cerr << "Failed to get window ID for: " << title_ << std::endl;
-    //     return false;
-    // }
+    // 设置鼠标和键盘回调
+    glfwSetCursorPosCallback(window_, MousePosCallback);
+    glfwSetMouseButtonCallback(window_, MouseButtonCallback);
+    glfwSetScrollCallback(window_, ScrollCallback);
+    glfwSetKeyCallback(window_, KeyCallback);
+    glfwSetCharCallback(window_, CharCallback);
+
+    // 获取窗口ID并创建Skia渲染器
+    void *windowId = getWindowId();
+    if (windowId)
+    {
+        skiaRenderer_ = std::make_unique<liteDui::LiteSkiaRenderer>(windowId, width_, height_);
+        std::cout << "Created Skia renderer for window: " << title_ << std::endl;
+    }
+    else
+    {
+        std::cerr << "Failed to get window ID for: " << title_ << std::endl;
+        return false;
+    }
 
     std::cout << "Created window: " << title_ << " (" << width_ << "x" << height_ << ")" << std::endl;
     return true;
@@ -75,17 +89,26 @@ void LiteWindow::Render()
     if (!window_ || glfwWindowShouldClose(window_))
         return;
 
-    // 如果有根容器，使用双缓冲Cairo渲染
-    // 暂时注释掉，因为没有实现CairoRenderer
-    // if (rootContainer_ && cairoRenderer_)
-    // {
-    //     cairoRenderer_->begin();
-    //     if (cairoRenderer_->getContext())
-    //     {
-    //         rootContainer_->renderTree(cairoRenderer_->getContext());
-    //     }
-    //     cairoRenderer_->end();
-    // }
+    if (rootContainer_ && skiaRenderer_)
+    {
+        skiaRenderer_->begin();
+        
+        // 计算布局
+        if (rootContainer_->isDirty())
+        {
+            rootContainer_->setWidth(liteDui::LayoutValue::Point(static_cast<float>(width_)));
+            rootContainer_->setHeight(liteDui::LayoutValue::Point(static_cast<float>(height_)));
+            rootContainer_->calculateLayout(static_cast<float>(width_), static_cast<float>(height_));
+            rootContainer_->clearDirty();
+        }
+
+        SkCanvas *canvas = skiaRenderer_->getCanvas();
+        if (canvas)
+        {
+            rootContainer_->renderTree(canvas);
+        }
+        skiaRenderer_->end();
+    }
 }
 
 bool LiteWindow::ShouldClose() const
@@ -103,12 +126,24 @@ const char *LiteWindow::GetTitle() const
     return title_;
 }
 
+void LiteWindow::SetRootContainer(std::shared_ptr<liteDui::LiteContainer> root)
+{
+    rootContainer_ = root;
+    if (rootContainer_) {
+        rootContainer_->markDirty();
+    }
+}
+
+std::shared_ptr<liteDui::LiteContainer> LiteWindow::GetRootContainer() const
+{
+    return rootContainer_;
+}
+
 void *LiteWindow::getWindowId()
 {
     if (!window_)
         return nullptr;
 
-    // 根据平台返回相应的窗口ID
 #ifdef _WIN32
     return glfwGetWin32Window(window_);
 #elif defined(__linux__)
@@ -116,12 +151,10 @@ void *LiteWindow::getWindowId()
 #elif defined(__APPLE__)
     return glfwGetCocoaWindow(window_);
 #else
-    std::cerr << "Platform not supported for direct Cairo rendering" << std::endl;
     return nullptr;
 #endif
 }
 
-// 窗口大小回调
 void LiteWindow::WindowSizeCallback(GLFWwindow *window, int width, int height)
 {
     auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
@@ -130,57 +163,143 @@ void LiteWindow::WindowSizeCallback(GLFWwindow *window, int width, int height)
         win->width_ = width;
         win->height_ = height;
 
-        // 调整简化的Cairo渲染器大小
-        // if (win->cairoRenderer_)
-        // {
-        //     win->cairoRenderer_->resize(width, height);
-        // }
-
-        std::cout << "Window resized: " << win->title_ << " -> " << width << "x" << height << std::endl;
+        if (win->skiaRenderer_)
+        {
+            win->skiaRenderer_->resize(width, height);
+        }
+        if (win->rootContainer_)
+        {
+            win->rootContainer_->markDirty();
+        }
     }
 }
 
-// 窗口关闭回调
 void LiteWindow::WindowCloseCallback(GLFWwindow *window)
 {
-    auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
-    if (win)
+    glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
+
+static liteDui::LiteContainer *g_lastMouseInsideContainer = nullptr;
+
+static liteDui::LiteContainer *findDeepestContainerAtPosition(liteDui::LiteContainer *container, float x, float y, float &subx, float &suby)
+{
+    if (!container) return nullptr;
+
+    float cx = container->getLeft();
+    float cy = container->getTop();
+    float cw = container->getLayoutWidth();
+    float ch = container->getLayoutHeight();
+
+    if (x < cx || x >= cx + cw || y < cy || y >= cy + ch) return nullptr;
+
+    subx = x - cx;
+    suby = y - cy;
+
+    for (int i = static_cast<int>(container->getChildCount()) - 1; i >= 0; --i)
     {
-        std::cout << "Window close requested: " << win->title_ << std::endl;
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
+        auto child = std::dynamic_pointer_cast<liteDui::LiteContainer>(container->getChildAt(i));
+        if (child)
+        {
+            liteDui::LiteContainer *deepest = findDeepestContainerAtPosition(child.get(), subx, suby, subx, suby);
+            if (deepest) return deepest;
+        }
+    }
+
+    return container;
+}
+
+static void dispatchMouseEvent(liteDui::LiteContainer *rootContainer, liteDui::MouseEvent &event, bool isMoving)
+{
+    if (!rootContainer) return;
+
+    float subx, suby;
+    liteDui::LiteContainer *target = findDeepestContainerAtPosition(rootContainer, event.x, event.y, subx, suby);
+
+    if (target != g_lastMouseInsideContainer)
+    {
+        if (g_lastMouseInsideContainer) g_lastMouseInsideContainer->onMouseExited(event);
+        g_lastMouseInsideContainer = target;
+        if (target) target->onMouseEntered(event);
+    }
+
+    if (target)
+    {
+        event.x = subx;
+        event.y = suby;
+        if (isMoving) target->onMouseMoved(event);
+        else if (event.pressed) target->onMousePressed(event);
+        else if (event.released) target->onMouseReleased(event);
     }
 }
 
-// WindowManager类的实现
+void LiteWindow::MousePosCallback(GLFWwindow *window, double xpos, double ypos)
+{
+    auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
+    if (win && win->rootContainer_)
+    {
+        liteDui::MouseEvent event(static_cast<float>(xpos), static_cast<float>(ypos));
+        dispatchMouseEvent(win->rootContainer_.get(), event, true);
+    }
+}
 
-LiteWindowManager::LiteWindowManager() : glfw_initialized_(false)
+void LiteWindow::MouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
+{
+    auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
+    if (win && win->rootContainer_)
+    {
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+        liteDui::MouseEvent event(static_cast<float>(xpos), static_cast<float>(ypos), static_cast<liteDui::MouseButton>(button));
+        event.pressed = (action == GLFW_PRESS);
+        event.released = (action == GLFW_RELEASE);
+        dispatchMouseEvent(win->rootContainer_.get(), event, false);
+    }
+}
+
+void LiteWindow::ScrollCallback(GLFWwindow *window, double xoffset, double yoffset)
 {
 }
 
+void LiteWindow::KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+    auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
+    if (win && win->rootContainer_ && g_lastMouseInsideContainer)
+    {
+        liteDui::KeyEvent event;
+        event.keyCode = key;
+        event.mods = mods;
+        event.pressed = (action == GLFW_PRESS || action == GLFW_REPEAT);
+        event.released = (action == GLFW_RELEASE);
+        g_lastMouseInsideContainer->onKeyPressed(event);
+    }
+}
+
+void LiteWindow::CharCallback(GLFWwindow *window, unsigned int codepoint)
+{
+    auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
+    if (win && win->rootContainer_ && g_lastMouseInsideContainer)
+    {
+        liteDui::KeyEvent event;
+        event.codepoint = codepoint;
+        event.pressed = true;
+        g_lastMouseInsideContainer->onKeyPressed(event);
+    }
+}
+
+LiteWindowManager::LiteWindowManager() : glfw_initialized_(false) {}
 LiteWindowManager::~LiteWindowManager()
 {
-    // 清理所有窗口
     windows_.clear();
-    if (glfw_initialized_)
-    {
-        glfwTerminate();
-    }
+    if (glfw_initialized_) glfwTerminate();
 }
 
-// 创建新窗口
 std::shared_ptr<LiteWindow> LiteWindowManager::CreateWindow(int width, int height, const char *title)
 {
-    // 初始化GLFW（如果还没有初始化）
     if (!glfw_initialized_)
     {
-        if (!glfwInit())
-        {
-            std::cerr << "Failed to initialize GLFW" << std::endl;
-            return nullptr;
-        }
+        if (!glfwInit()) return nullptr;
         glfw_initialized_ = true;
     }
-
     auto window = std::make_shared<LiteWindow>(width, height, title, this);
     if (window->Initialize())
     {
@@ -190,60 +309,28 @@ std::shared_ptr<LiteWindow> LiteWindowManager::CreateWindow(int width, int heigh
     return nullptr;
 }
 
-// 移除关闭的窗口
 void LiteWindowManager::RemoveClosedWindows()
 {
     auto it = windows_.begin();
     while (it != windows_.end())
     {
-        if ((*it)->ShouldClose())
-        {
-            std::cout << "LiteWindowManager: Removing closed window: " << (*it)->GetTitle() << std::endl;
-            it = windows_.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
+        if ((*it)->ShouldClose()) it = windows_.erase(it);
+        else ++it;
     }
 }
 
-// 运行所有窗口
 void LiteWindowManager::Run()
 {
-    if (windows_.empty())
-    {
-        std::cout << "No windows to run" << std::endl;
-        return;
-    }
-
-    std::cout << "Created " << windows_.size() << " windows." << std::endl;
-    std::cout << "Each window can be closed independently. Program exits when all windows are closed." << std::endl;
-
+    if (windows_.empty()) return;
     while (!windows_.empty())
     {
-        // 渲染所有打开的窗口
-        for (auto &window : windows_)
-        {
-            window->Render();
-        }
-
-        // 移除关闭的窗口
+        for (auto &window : windows_) window->Render();
         RemoveClosedWindows();
-
-        // 处理事件
         glfwPollEvents();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-
-    std::cout << "All windows closed. Exiting program." << std::endl;
 }
 
-// 获取窗口数量
-size_t LiteWindowManager::GetWindowCount() const
-{
-    return windows_.size();
-}
+size_t LiteWindowManager::GetWindowCount() const { return windows_.size(); }
 
 } // namespace liteDui

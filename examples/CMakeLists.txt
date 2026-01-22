@@ -1,4 +1,5 @@
 
 add_subdirectory(01_glfw_win)
 add_subdirectory(02_skia_basic)
-
+add_subdirectory(03_layout_controls)
+add_subdirectory(04_gui_demo)

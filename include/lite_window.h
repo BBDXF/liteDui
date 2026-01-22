@@ -5,15 +5,18 @@
 #include <memory>
 #include <vector>
 #include <cstddef>
+#include "lite_common.h"
 
 // 前向声明
 namespace liteDui {
+    class LiteSkiaRenderer;
+    class LiteContainer;
     class LiteWindowManager;
 }
 
 /**
  * @class LiteWindow
- * @brief 使用简化Cairo渲染器的窗口类
+ * @brief 使用Skia渲染器的窗口类
  */
 namespace liteDui {
 class LiteWindow {
@@ -61,6 +64,18 @@ public:
      */
     const char* GetTitle() const;
 
+    /**
+     * @brief 设置根容器
+     * @param root 根容器指针
+     */
+    void SetRootContainer(std::shared_ptr<liteDui::LiteContainer> root);
+
+    /**
+     * @brief 获取根容器
+     * @return 根容器指针
+     */
+    std::shared_ptr<liteDui::LiteContainer> GetRootContainer() const;
+
     // 禁止复制和赋值
     LiteWindow(const LiteWindow&) = delete;
     LiteWindow& operator=(const LiteWindow&) = delete;
@@ -71,6 +86,8 @@ private:
     const char* title_;
     LiteWindowManager* manager_;
     GLFWwindow* window_; // GLFWwindow指针
+    std::unique_ptr<liteDui::LiteSkiaRenderer> skiaRenderer_; // Skia渲染器
+    std::shared_ptr<liteDui::LiteContainer> rootContainer_; // 根容器
 
     /**
      * @brief 获取平台特定的窗口ID
@@ -83,6 +100,23 @@ private:
 
     // 窗口关闭回调函数
     static void WindowCloseCallback(GLFWwindow* window);
+
+    // 鼠标位置回调函数
+    static void MousePosCallback(GLFWwindow* window, double xpos, double ypos);
+
+    // 鼠标按钮回调函数
+    static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+
+    // 鼠标滚轮回调函数
+    static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+
+    // 键盘按键回调函数
+    static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+    // 字符输入回调函数
+    static void CharCallback(GLFWwindow* window, unsigned int codepoint);
+
+    friend class LiteWindowManager;
 };
 
 class LiteWindowManager {

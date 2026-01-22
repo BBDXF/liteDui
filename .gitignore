@@ -1,7 +1,13 @@
-refs
 build
-node_modules
+log
 .cache
+.vscode
+.clangd
+.clang-format
+.clang-tidy
+ref/
+refs
+node_modules
 
 # third-party
 third-party
