@@ -60,6 +60,7 @@ public:
     virtual void onMouseExited(const MouseEvent& event) {}
     virtual void onKeyPressed(const KeyEvent& event) {}
     virtual void onCharInput(unsigned int codepoint) {}
+    virtual void onScroll(const ScrollEvent& event) {}
     
     // 焦点事件虚函数
     virtual void onFocusGained() {}

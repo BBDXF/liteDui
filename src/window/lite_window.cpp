@@ -295,6 +295,33 @@ void LiteWindow::MouseButtonCallback(GLFWwindow *window, int button, int action,
 
 void LiteWindow::ScrollCallback(GLFWwindow *window, double xoffset, double yoffset)
 {
+    auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
+    if (win && win->rootContainer_)
+    {
+        // 获取鼠标位置，找到目标控件
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+        
+        float subx, suby;
+        liteDui::LiteContainer *target = findDeepestContainerAtPosition(
+            win->rootContainer_.get(),
+            static_cast<float>(xpos),
+            static_cast<float>(ypos),
+            subx, suby);
+        
+        // 滚动事件向上冒泡，直到有控件处理它
+        while (target) {
+            liteDui::ScrollEvent event(
+                static_cast<float>(xoffset),
+                static_cast<float>(yoffset),
+                subx, suby);
+            target->onScroll(event);
+            
+            // 向上查找父控件继续传递滚动事件
+            auto parent = target->getParent();
+            target = parent ? std::dynamic_pointer_cast<liteDui::LiteContainer>(parent).get() : nullptr;
+        }
+    }
 }
 
 // 处理用户按键输入 - 发送给焦点控件

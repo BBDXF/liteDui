@@ -199,5 +199,20 @@ enum class ControlState {
 using MouseEventCallback = std::function<void(const MouseEvent&)>;
 using TextChangedCallback = std::function<void(const std::string&)>;
 using FocusChangedCallback = std::function<void(bool)>;
+using CheckedChangedCallback = std::function<void(bool)>;
+using SelectionChangedCallback = std::function<void(int)>;
+using ScrollEventCallback = std::function<void(float, float)>;
+
+// 滚轮事件结构体
+struct ScrollEvent {
+    float xoffset;
+    float yoffset;
+    float mouseX;
+    float mouseY;
+    
+    ScrollEvent() : xoffset(0), yoffset(0), mouseX(0), mouseY(0) {}
+    ScrollEvent(float xoff, float yoff, float mx = 0, float my = 0)
+        : xoffset(xoff), yoffset(yoff), mouseX(mx), mouseY(my) {}
+};
 
 } // namespace liteDui
