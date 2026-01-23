@@ -134,6 +134,7 @@ const char *LiteWindow::GetTitle() const
 void LiteWindow::SetRootContainer(std::shared_ptr<liteDui::LiteContainer> root)
 {
     rootContainer_ = root;
+    focusedContainer_ = nullptr; // 重置焦点
     if (rootContainer_) {
         rootContainer_->markDirty();
     }
@@ -142,6 +143,24 @@ void LiteWindow::SetRootContainer(std::shared_ptr<liteDui::LiteContainer> root)
 std::shared_ptr<liteDui::LiteContainer> LiteWindow::GetRootContainer() const
 {
     return rootContainer_;
+}
+
+void LiteWindow::SetFocusedContainer(liteDui::LiteContainer* container)
+{
+    if (focusedContainer_ == container) return;
+    
+    // 通知旧的焦点控件失去焦点
+    if (focusedContainer_) {
+        liteDui::MouseEvent event;
+        focusedContainer_->onFocusLost();
+    }
+    
+    focusedContainer_ = container;
+    
+    // 通知新的焦点控件获得焦点
+    if (focusedContainer_) {
+        focusedContainer_->onFocusGained();
+    }
 }
 
 void *LiteWindow::getWindowId()
@@ -213,7 +232,7 @@ static liteDui::LiteContainer *findDeepestContainerAtPosition(liteDui::LiteConta
     return container;
 }
 
-static void dispatchMouseEvent(liteDui::LiteContainer *rootContainer, liteDui::MouseEvent &event, bool isMoving)
+static void dispatchMouseEvent(LiteWindow *win, liteDui::LiteContainer *rootContainer, liteDui::MouseEvent &event, bool isMoving)
 {
     if (!rootContainer) return;
 
@@ -231,9 +250,22 @@ static void dispatchMouseEvent(liteDui::LiteContainer *rootContainer, liteDui::M
     {
         event.x = subx;
         event.y = suby;
-        if (isMoving) target->onMouseMoved(event);
-        else if (event.pressed) target->onMousePressed(event);
-        else if (event.released) target->onMouseReleased(event);
+        if (isMoving) {
+            target->onMouseMoved(event);
+        } else if (event.pressed) {
+            // 鼠标按下时，设置焦点到被点击的控件
+            if (win) {
+                win->SetFocusedContainer(target);
+            }
+            target->onMousePressed(event);
+        } else if (event.released) {
+            target->onMouseReleased(event);
+        }
+    }
+    else if (event.pressed && win)
+    {
+        // 点击空白区域时清除焦点
+        win->SetFocusedContainer(nullptr);
     }
 }
 
@@ -243,7 +275,7 @@ void LiteWindow::MousePosCallback(GLFWwindow *window, double xpos, double ypos)
     if (win && win->rootContainer_)
     {
         liteDui::MouseEvent event(static_cast<float>(xpos), static_cast<float>(ypos));
-        dispatchMouseEvent(win->rootContainer_.get(), event, true);
+        dispatchMouseEvent(win, win->rootContainer_.get(), event, true);
     }
 }
 
@@ -257,7 +289,7 @@ void LiteWindow::MouseButtonCallback(GLFWwindow *window, int button, int action,
         liteDui::MouseEvent event(static_cast<float>(xpos), static_cast<float>(ypos), static_cast<liteDui::MouseButton>(button));
         event.pressed = (action == GLFW_PRESS);
         event.released = (action == GLFW_RELEASE);
-        dispatchMouseEvent(win->rootContainer_.get(), event, false);
+        dispatchMouseEvent(win, win->rootContainer_.get(), event, false);
     }
 }
 
@@ -265,28 +297,28 @@ void LiteWindow::ScrollCallback(GLFWwindow *window, double xoffset, double yoffs
 {
 }
 
-// 处理用户按键输入
+// 处理用户按键输入 - 发送给焦点控件
 void LiteWindow::KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
     auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
-    if (win && win->rootContainer_ && g_lastMouseInsideContainer)
+    if (win && win->focusedContainer_)
     {
         liteDui::KeyEvent event;
         event.keyCode = key;
         event.mods = mods;
         event.pressed = (action == GLFW_PRESS || action == GLFW_REPEAT);
         event.released = (action == GLFW_RELEASE);
-        g_lastMouseInsideContainer->onKeyPressed(event);
+        win->focusedContainer_->onKeyPressed(event);
     }
 }
 
-// 处理用户输入法等Unicode输入
+// 处理用户输入法等Unicode输入 - 发送给焦点控件
 void LiteWindow::CharCallback(GLFWwindow *window, unsigned int codepoint)
 {
     auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
-    if (win && win->rootContainer_ && g_lastMouseInsideContainer)
+    if (win && win->focusedContainer_)
     {
-        g_lastMouseInsideContainer->onCharInput(codepoint);
+        win->focusedContainer_->onCharInput(codepoint);
     }
 }
 

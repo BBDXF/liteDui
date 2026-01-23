@@ -80,6 +80,18 @@ public:
     LiteWindow(const LiteWindow&) = delete;
     LiteWindow& operator=(const LiteWindow&) = delete;
 
+    /**
+     * @brief 设置焦点控件
+     * @param container 要获取焦点的控件，传入nullptr清除焦点
+     */
+    void SetFocusedContainer(liteDui::LiteContainer* container);
+
+    /**
+     * @brief 获取当前焦点控件
+     * @return 当前焦点控件指针
+     */
+    liteDui::LiteContainer* GetFocusedContainer() const { return focusedContainer_; }
+
 private:
     int width_;
     int height_;
@@ -88,6 +100,7 @@ private:
     GLFWwindow* window_; // GLFWwindow指针
     std::unique_ptr<liteDui::LiteSkiaRenderer> skiaRenderer_; // Skia渲染器
     std::shared_ptr<liteDui::LiteContainer> rootContainer_; // 根容器
+    liteDui::LiteContainer* focusedContainer_ = nullptr; // 当前焦点控件
 
     /**
      * @brief 获取平台特定的窗口ID

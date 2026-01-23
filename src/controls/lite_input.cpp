@@ -513,13 +513,15 @@ void LiteInput::render(SkCanvas* canvas) {
 
 void LiteInput::onMousePressed(const MouseEvent& event) {
     if (m_state == ControlState::Disabled) return;
-    setState(ControlState::Focused);
+    
+    // 注意：焦点切换由 LiteWindow 在分发鼠标事件时统一处理
+    // 这里只处理光标定位和选择逻辑
     
     float padL = getLayoutPaddingLeft();
     float borderL = getLayoutBorderLeft();
     float x = event.x - borderL - padL + m_scrollOffset;
     
-    float visibleWidth = getLayoutWidth() - getLayoutBorderLeft() - getLayoutBorderRight() 
+    float visibleWidth = getLayoutWidth() - getLayoutBorderLeft() - getLayoutBorderRight()
                         - getLayoutPaddingLeft() - getLayoutPaddingRight();
     
     std::string displayText = getDisplayText();
@@ -549,6 +551,17 @@ void LiteInput::onKeyPressed(const KeyEvent& event) {
 void LiteInput::onCharInput(unsigned int codepoint) {
     if (m_state != ControlState::Focused || m_readOnly) return;
     handleCharInput(codepoint);
+}
+
+// 焦点事件处理
+void LiteInput::onFocusGained() {
+    setState(ControlState::Focused);
+    resetCursorBlink();
+}
+
+void LiteInput::onFocusLost() {
+    setState(ControlState::Normal);
+    clearSelection();
 }
 
 } // namespace liteDui

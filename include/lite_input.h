@@ -81,6 +81,10 @@ public:
     void onMouseReleased(const MouseEvent& event) override;
     void onKeyPressed(const KeyEvent& event) override;
     void onCharInput(unsigned int codepoint) override;
+    
+    // 焦点事件
+    void onFocusGained() override;
+    void onFocusLost() override;
 
 private:
     void setState(ControlState state);

@@ -60,6 +60,10 @@ public:
     virtual void onMouseExited(const MouseEvent& event) {}
     virtual void onKeyPressed(const KeyEvent& event) {}
     virtual void onCharInput(unsigned int codepoint) {}
+    
+    // 焦点事件虚函数
+    virtual void onFocusGained() {}
+    virtual void onFocusLost() {}
 
 protected:
     void drawBackground(SkCanvas* canvas, float x, float y, float w, float h);
