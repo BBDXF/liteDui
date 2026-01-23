@@ -6,15 +6,8 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkRRect.h"
-#include "include/core/SkFont.h"
-#include "include/core/SkFontMgr.h"
 #include "include/effects/SkDashPathEffect.h"
-#include "modules/skparagraph/include/FontCollection.h"
 #include "modules/skparagraph/include/ParagraphBuilder.h"
-#include "modules/skparagraph/include/ParagraphStyle.h"
-#include "modules/skparagraph/include/TextStyle.h"
-#include "include/ports/SkFontMgr_fontconfig.h"
-#include "include/ports/SkFontScanner_FreeType.h"
 
 using namespace skia::textlayout;
 
@@ -156,29 +149,11 @@ void LiteContainer::drawText(SkCanvas* canvas, float x, float y, float w, float 
 
     if (textW <= 0) return;
 
-    // 使用skparagraph绘制文本
-    static sk_sp<SkFontMgr> fontMgr = SkFontMgr_New_FontConfig(nullptr, SkFontScanner_Make_FreeType());
-    static auto fontCollection = sk_make_sp<FontCollection>();
-    static bool initialized = false;
-    if (!initialized) {
-        fontCollection->setDefaultFontManager(fontMgr);
-        fontCollection->enableFontFallback();
-        initialized = true;
-    }
-
-    ParagraphStyle paraStyle;
-    if (m_textAlign == TextAlign::Center) {
-        paraStyle.setTextAlign(skia::textlayout::TextAlign::kCenter);
-    } else if (m_textAlign == TextAlign::Right) {
-        paraStyle.setTextAlign(skia::textlayout::TextAlign::kRight);
-    } else {
-        paraStyle.setTextAlign(skia::textlayout::TextAlign::kLeft);
-    }
-
-    TextStyle textStyle;
-    textStyle.setColor(m_textColor.toARGB());
-    textStyle.setFontSize(m_fontSize);
-    textStyle.setFontFamilies({SkString(m_fontFamily.c_str())});
+    // 使用 LiteFontManager 获取字体资源和样式
+    auto& fontMgr = getFontManager();
+    auto fontCollection = fontMgr.getFontCollection();
+    auto paraStyle = getParagraphStyle();
+    auto textStyle = getTextStyle();
 
     auto builder = ParagraphBuilder::make(paraStyle, fontCollection);
     builder->pushStyle(textStyle);
@@ -187,6 +162,23 @@ void LiteContainer::drawText(SkCanvas* canvas, float x, float y, float w, float 
     auto paragraph = builder->Build();
     paragraph->layout(textW);
     paragraph->paint(canvas, textX, textY);
+}
+
+// 字体样式辅助方法实现
+LiteFontManager& LiteContainer::getFontManager() const {
+    return LiteFontManager::getInstance();
+}
+
+skia::textlayout::TextStyle LiteContainer::getTextStyle() const {
+    return getFontManager().createTextStyle(m_textColor, m_fontSize, m_fontFamily);
+}
+
+skia::textlayout::ParagraphStyle LiteContainer::getParagraphStyle() const {
+    return getFontManager().createParagraphStyle(m_textAlign);
+}
+
+SkFont LiteContainer::getFont() const {
+    return getFontManager().createFont(m_fontSize, m_fontFamily);
 }
 
 } // namespace liteDui

@@ -7,8 +7,13 @@
 #include "lite_container.h"
 #include <chrono>
 #include <vector>
+#include <memory>
 
+// 前向声明
 class SkFont;
+namespace skia::textlayout {
+    class Paragraph;
+}
 
 namespace liteDui {
 
@@ -67,7 +72,8 @@ public:
     void clear();
     void insertText(const std::string& text);
 
-    // 重写渲染
+    // 重写更新和渲染
+    void update() override;
     void render(SkCanvas* canvas) override;
 
     // 事件处理（公开以便外部调用）
@@ -84,12 +90,14 @@ private:
     void handleSpecialKey(const KeyEvent& event);
     void deleteSelected();
     void updateCursorBlink();
+    void resetCursorBlink();
     
-    // 文本测量辅助方法
-    float measureTextWidth(const SkFont& font, const std::string& text) const;
-    std::vector<float> getCharPositions(const SkFont& font, const std::string& text) const;
-    int xToCharIndex(const SkFont& font, const std::string& text, float x) const;
-    void ensureCursorVisible(const SkFont& font, float visibleWidth);
+    // 使用 skparagraph 的文本测量辅助方法
+    std::unique_ptr<skia::textlayout::Paragraph> buildParagraph(
+        const std::string& text, const Color& color, float maxWidth) const;
+    std::vector<float> getCharPositions(const std::string& text, float maxWidth) const;
+    int xToCharIndex(const std::string& text, float x, float maxWidth) const;
+    void ensureCursorVisible(float visibleWidth);
 
     ControlState m_state = ControlState::Normal;
     InputType m_inputType = InputType::Text;

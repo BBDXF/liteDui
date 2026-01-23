@@ -274,6 +274,37 @@ Display LiteLayout::getDisplay() const {
     return static_cast<Display>(YGNodeStyleGetDisplay(m_yogaNode));
 }
 
+// 脏标记 - 向上冒泡通知父节点
+void LiteLayout::markDirty() {
+    if (m_dirty) return; // 已经是脏状态，无需重复标记
+    
+    m_dirty = true;
+    
+    // 向上冒泡，通知父节点也需要重新渲染
+    auto parent = m_parent.lock();
+    if (parent) {
+        parent->markDirty();
+    }
+}
+
+// 递归清除脏标记
+void LiteLayout::clearDirtyTree() {
+    m_dirty = false;
+    for (const auto& child : m_children) {
+        child->clearDirtyTree();
+    }
+}
+
+// 更新树 - 递归调用所有节点的 update()
+void LiteLayout::updateTree() {
+    update();
+    for (const auto& child : m_children) {
+        if (child->getDisplay() != Display::None) {
+            child->updateTree();
+        }
+    }
+}
+
 // 渲染树
 void LiteLayout::renderTree(SkCanvas* canvas) {
     if (!canvas) return;

@@ -1,17 +1,18 @@
 /**
  * lite_input.cpp - 输入框控件实现
- * 参考 Skia plaintexteditor 实现精确文本测量和选择
+ * 使用 skparagraph 实现精确文本测量和选择
  */
 
 #include "lite_input.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkRect.h"
-#include "include/core/SkFont.h"
-#include "include/core/SkFontMetrics.h"
+#include "modules/skparagraph/include/ParagraphBuilder.h"
+#include "modules/skparagraph/include/Paragraph.h"
 #include <algorithm>
 #include <cctype>
-#include <vector>
+
+using namespace skia::textlayout;
 
 namespace liteDui {
 
@@ -23,6 +24,7 @@ LiteInput::LiteInput() {
     setBorder(EdgeInsets::All(1.0f));
     setFontSize(14.0f);
     m_lastBlinkTime = std::chrono::steady_clock::now();
+    m_cursorVisible = true;
 }
 
 LiteInput::LiteInput(const std::string& placeholder) : LiteInput() {
@@ -43,6 +45,7 @@ void LiteInput::setValue(const std::string& value) {
     setText(value);
     m_cursorPos = std::min(m_cursorPos, static_cast<int>(value.length()));
     clearSelection();
+    resetCursorBlink();
     if (m_onTextChanged) m_onTextChanged(value);
 }
 
@@ -66,6 +69,7 @@ void LiteInput::setCursorPosition(int pos) {
     int len = static_cast<int>(getText().length());
     m_cursorPos = std::max(0, std::min(pos, len));
     clearSelection();
+    resetCursorBlink();
     markDirty();
 }
 
@@ -105,6 +109,7 @@ void LiteInput::clear() {
     m_cursorPos = 0;
     m_scrollOffset = 0;
     clearSelection();
+    resetCursorBlink();
     if (m_onTextChanged) m_onTextChanged("");
 }
 
@@ -127,6 +132,7 @@ void LiteInput::insertText(const std::string& text) {
         m_cursorPos += static_cast<int>(text.length());
     }
     
+    resetCursorBlink();
     if (m_onTextChanged) m_onTextChanged(getText());
 }
 
@@ -138,6 +144,11 @@ void LiteInput::setState(ControlState state) {
     
     m_state = state;
     updateAppearance();
+    
+    // 获得焦点时重置光标闪烁
+    if (isFocused) {
+        resetCursorBlink();
+    }
     
     if (wasFocused != isFocused && m_onFocusChanged) {
         m_onFocusChanged(isFocused);
@@ -172,16 +183,39 @@ std::string LiteInput::getDisplayText() const {
     return getText();
 }
 
-// 使用 SkFont 测量文本宽度
-float LiteInput::measureTextWidth(const SkFont& font, const std::string& text) const {
-    if (text.empty()) return 0;
-    return font.measureText(text.c_str(), text.length(), SkTextEncoding::kUTF8);
+// 使用 skparagraph 构建段落
+std::unique_ptr<Paragraph> LiteInput::buildParagraph(
+    const std::string& text, const Color& color, float maxWidth) const {
+    
+    auto& fontMgr = getFontManager();
+    auto fontCollection = fontMgr.getFontCollection();
+    
+    // 创建段落样式（输入框始终左对齐）
+    ParagraphStyle paraStyle;
+    paraStyle.setTextAlign(skia::textlayout::TextAlign::kLeft);
+    
+    // 创建文本样式
+    auto textStyle = fontMgr.createTextStyle(color, getFontSize(), getFontFamily());
+    
+    auto builder = ParagraphBuilder::make(paraStyle, fontCollection);
+    builder->pushStyle(textStyle);
+    builder->addText(text.c_str());
+    
+    auto paragraph = builder->Build();
+    paragraph->layout(maxWidth > 0 ? maxWidth : 10000.0f);
+    
+    return paragraph;
 }
 
-// 计算每个字节位置的 X 坐标（按 UTF-8 字符边界）
-std::vector<float> LiteInput::getCharPositions(const SkFont& font, const std::string& text) const {
+// 计算每个字符位置的 X 坐标（使用 skparagraph 的 getRectsForRange）
+std::vector<float> LiteInput::getCharPositions(const std::string& text, float maxWidth) const {
     std::vector<float> positions(text.length() + 1, 0);
     
+    if (text.empty()) return positions;
+    
+    auto paragraph = buildParagraph(text, getTextColor(), maxWidth);
+    
+    // 遍历每个字符位置
     size_t i = 0;
     while (i < text.length()) {
         // 确定 UTF-8 字符的字节数
@@ -193,7 +227,17 @@ std::vector<float> LiteInput::getCharPositions(const SkFont& font, const std::st
         else if ((c & 0xF8) == 0xF0) charLen = 4;
         
         size_t nextPos = std::min(i + charLen, text.length());
-        float width = font.measureText(text.c_str(), nextPos, SkTextEncoding::kUTF8);
+        
+        // 使用 getRectsForRange 获取字符的边界框
+        auto rects = paragraph->getRectsForRange(
+            0, nextPos, 
+            RectHeightStyle::kTight, 
+            RectWidthStyle::kTight);
+        
+        float width = 0;
+        if (!rects.empty()) {
+            width = rects.back().rect.fRight;
+        }
         
         // 填充该字符所有字节位置为相同宽度
         for (size_t j = i + 1; j <= nextPos; ++j) {
@@ -201,14 +245,15 @@ std::vector<float> LiteInput::getCharPositions(const SkFont& font, const std::st
         }
         i = nextPos;
     }
+    
     return positions;
 }
 
 // 根据 X 坐标找到最近的字符位置
-int LiteInput::xToCharIndex(const SkFont& font, const std::string& text, float x) const {
+int LiteInput::xToCharIndex(const std::string& text, float x, float maxWidth) const {
     if (text.empty()) return 0;
     
-    auto positions = getCharPositions(font, text);
+    auto positions = getCharPositions(text, maxWidth);
     
     // 找到最接近 x 的位置
     for (size_t i = 0; i < positions.size() - 1; ++i) {
@@ -219,9 +264,9 @@ int LiteInput::xToCharIndex(const SkFont& font, const std::string& text, float x
 }
 
 // 确保光标可见，调整滚动偏移
-void LiteInput::ensureCursorVisible(const SkFont& font, float visibleWidth) {
+void LiteInput::ensureCursorVisible(float visibleWidth) {
     std::string displayText = getDisplayText();
-    auto positions = getCharPositions(font, displayText);
+    auto positions = getCharPositions(displayText, visibleWidth + m_scrollOffset + 100);
     
     float cursorX = (m_cursorPos < static_cast<int>(positions.size())) 
                     ? positions[m_cursorPos] : positions.back();
@@ -241,7 +286,6 @@ void LiteInput::ensureCursorVisible(const SkFont& font, float visibleWidth) {
 
 void LiteInput::handleCharInput(unsigned int codepoint) {
     if (m_state != ControlState::Focused || m_readOnly) return;
-    // if (codepoint < 32 || codepoint == 127) return;
     
     if (m_inputType == InputType::Number) {
         if (codepoint > 127 || (!std::isdigit(codepoint) && codepoint != '-' && codepoint != '.')) return;
@@ -280,6 +324,7 @@ void LiteInput::handleSpecialKey(const KeyEvent& event) {
             std::string current = getText();
             setText(current.substr(0, m_cursorPos - 1) + current.substr(m_cursorPos));
             m_cursorPos--;
+            resetCursorBlink();
             if (m_onTextChanged) m_onTextChanged(getText());
         }
         break;
@@ -289,6 +334,7 @@ void LiteInput::handleSpecialKey(const KeyEvent& event) {
         } else if (m_cursorPos < static_cast<int>(getText().length())) {
             std::string current = getText();
             setText(current.substr(0, m_cursorPos) + current.substr(m_cursorPos + 1));
+            resetCursorBlink();
             if (m_onTextChanged) m_onTextChanged(getText());
         }
         break;
@@ -302,6 +348,7 @@ void LiteInput::handleSpecialKey(const KeyEvent& event) {
                 m_cursorPos--;
                 clearSelection();
             }
+            resetCursorBlink();
         }
         break;
     case 262: // Right
@@ -314,6 +361,7 @@ void LiteInput::handleSpecialKey(const KeyEvent& event) {
                 m_cursorPos++;
                 clearSelection();
             }
+            resetCursorBlink();
         }
         break;
     case 268: // Home
@@ -324,6 +372,7 @@ void LiteInput::handleSpecialKey(const KeyEvent& event) {
             clearSelection();
         }
         m_cursorPos = 0;
+        resetCursorBlink();
         break;
     case 269: // End
         if (shift) {
@@ -333,6 +382,7 @@ void LiteInput::handleSpecialKey(const KeyEvent& event) {
             clearSelection();
         }
         m_cursorPos = static_cast<int>(getText().length());
+        resetCursorBlink();
         break;
     }
     markDirty();
@@ -347,12 +397,16 @@ void LiteInput::deleteSelected() {
     setText(current.substr(0, start) + current.substr(end));
     m_cursorPos = start;
     clearSelection();
+    resetCursorBlink();
     if (m_onTextChanged) m_onTextChanged(getText());
 }
 
 void LiteInput::updateCursorBlink() {
     if (m_state != ControlState::Focused) {
-        m_cursorVisible = true;
+        if (!m_cursorVisible) {
+            m_cursorVisible = true;
+            markDirty();
+        }
         return;
     }
     
@@ -365,9 +419,25 @@ void LiteInput::updateCursorBlink() {
     }
 }
 
-void LiteInput::render(SkCanvas* canvas) {
-    LiteContainer::render(canvas);
+void LiteInput::resetCursorBlink() {
+    m_cursorVisible = true;
+    m_lastBlinkTime = std::chrono::steady_clock::now();
+    markDirty();
+}
+
+// 更新逻辑 - 处理光标闪烁
+void LiteInput::update() {
     updateCursorBlink();
+}
+
+void LiteInput::render(SkCanvas* canvas) {
+    // 绘制背景和边框
+    float w = getLayoutWidth();
+    float h = getLayoutHeight();
+    if (w <= 0 || h <= 0) return;
+    
+    drawBackground(canvas, 0, 0, w, h);
+    drawBorder(canvas, 0, 0, w, h);
     
     float padL = getLayoutPaddingLeft();
     float padT = getLayoutPaddingTop();
@@ -378,27 +448,21 @@ void LiteInput::render(SkCanvas* canvas) {
     
     float textX = borderL + padL;
     float textY = borderT + padT;
-    float visibleWidth = getLayoutWidth() - borderL - borderR - padL - padR;
-    
-    // 创建字体
-    SkFont font;
-    font.setSize(getFontSize());
+    float visibleWidth = w - borderL - borderR - padL - padR;
     
     std::string displayText = getDisplayText();
     bool showPlaceholder = displayText.empty() && !m_placeholder.empty();
     
     // 确保光标可见
     if (m_state == ControlState::Focused) {
-        ensureCursorVisible(font, visibleWidth);
+        ensureCursorVisible(visibleWidth);
     }
     
     // 设置裁剪区域
     canvas->save();
-    SkRect clipRect = SkRect::MakeXYWH(textX, textY, visibleWidth, getFontSize() + 4);
-    canvas->clipRect(clipRect);
     
     // 计算字符位置
-    auto positions = getCharPositions(font, displayText);
+    auto positions = getCharPositions(displayText, visibleWidth + m_scrollOffset + 100);
     
     // 绘制选择高亮
     if (hasSelection() && !displayText.empty()) {
@@ -408,33 +472,40 @@ void LiteInput::render(SkCanvas* canvas) {
         float startX = positions[selStart] - m_scrollOffset;
         float endX = positions[selEnd] - m_scrollOffset;
         
+        // 获取文本高度
+        auto paragraph = buildParagraph(displayText, getTextColor(), visibleWidth + m_scrollOffset + 100);
+        float textHeight = paragraph->getHeight();
+        
         SkPaint selPaint;
         selPaint.setColor(m_selectionColor.toARGB());
-        canvas->drawRect(SkRect::MakeXYWH(textX + startX, textY, endX - startX, getFontSize()), selPaint);
+        canvas->drawRect(SkRect::MakeXYWH(textX + startX, textY, endX - startX, textHeight), selPaint);
     }
     
     // 绘制文本
-    SkPaint textPaint;
-    SkFontMetrics metrics;
-    font.getMetrics(&metrics);
-    float baseline = textY - metrics.fAscent;
-    
     if (showPlaceholder) {
-        textPaint.setColor(m_placeholderColor.toARGB());
-        canvas->drawString(m_placeholder.c_str(), textX, baseline, font, textPaint);
+        auto paragraph = buildParagraph(m_placeholder, m_placeholderColor, visibleWidth);
+        paragraph->paint(canvas, textX, textY);
     } else if (!displayText.empty()) {
-        textPaint.setColor(getTextColor().toARGB());
-        canvas->drawString(displayText.c_str(), textX - m_scrollOffset, baseline, font, textPaint);
+        auto paragraph = buildParagraph(displayText, getTextColor(), visibleWidth + m_scrollOffset + 100);
+        paragraph->paint(canvas, textX - m_scrollOffset, textY);
     }
     
-    // 绘制光标
+    // 绘制光标 - 只在聚焦状态且光标可见时绘制
     if (m_state == ControlState::Focused && m_cursorVisible) {
         float cursorX = textX + positions[m_cursorPos] - m_scrollOffset;
         
+        // 获取文本高度用于光标
+        float textHeight = getFontSize() * 1.2f; // 默认行高
+        if (!displayText.empty()) {
+            auto paragraph = buildParagraph(displayText, getTextColor(), visibleWidth + m_scrollOffset + 100);
+            textHeight = paragraph->getHeight();
+        }
+        
         SkPaint cursorPaint;
         cursorPaint.setColor(m_cursorColor.toARGB());
-        cursorPaint.setStrokeWidth(1.0f);
-        canvas->drawLine(cursorX, textY, cursorX, textY + getFontSize(), cursorPaint);
+        cursorPaint.setStrokeWidth(1.5f);
+        cursorPaint.setStyle(SkPaint::kStroke_Style);
+        canvas->drawLine(cursorX, textY, cursorX, textY + textHeight, cursorPaint);
     }
     
     canvas->restore();
@@ -448,18 +519,18 @@ void LiteInput::onMousePressed(const MouseEvent& event) {
     float borderL = getLayoutBorderLeft();
     float x = event.x - borderL - padL + m_scrollOffset;
     
-    // 创建字体进行精确定位
-    SkFont font;
-    font.setSize(getFontSize());
+    float visibleWidth = getLayoutWidth() - getLayoutBorderLeft() - getLayoutBorderRight() 
+                        - getLayoutPaddingLeft() - getLayoutPaddingRight();
     
     std::string displayText = getDisplayText();
-    m_cursorPos = xToCharIndex(font, displayText, x);
+    m_cursorPos = xToCharIndex(displayText, x, visibleWidth + m_scrollOffset + 100);
     
     // 开始选择
     m_selectionStart = m_cursorPos;
     m_selectionEnd = m_cursorPos;
     m_isDragging = true;
     
+    resetCursorBlink();
     markDirty();
 }
 
@@ -472,13 +543,11 @@ void LiteInput::onMouseReleased(const MouseEvent& event) {
 
 void LiteInput::onKeyPressed(const KeyEvent& event) {
     if (m_state == ControlState::Disabled || m_readOnly) return;
-    printf("KeyPressed: %d, %d\n", event.keyCode, event.pressed);
     handleSpecialKey(event);
 }
 
 void LiteInput::onCharInput(unsigned int codepoint) {
     if (m_state != ControlState::Focused || m_readOnly) return;
-    printf("CharInput: %d\n", codepoint);
     handleCharInput(codepoint);
 }
 

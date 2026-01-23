@@ -5,6 +5,12 @@
 #pragma once
 
 #include "lite_layout.h"
+#include "lite_font_manager.h"
+
+// 前向声明
+namespace skia::textlayout {
+    class Paragraph;
+}
 
 namespace liteDui {
 
@@ -59,6 +65,27 @@ protected:
     void drawBackground(SkCanvas* canvas, float x, float y, float w, float h);
     void drawBorder(SkCanvas* canvas, float x, float y, float w, float h);
     void drawText(SkCanvas* canvas, float x, float y, float w, float h);
+
+    // 字体样式辅助方法 - 子类可直接使用
+    /**
+     * 获取字体管理器实例
+     */
+    LiteFontManager& getFontManager() const;
+
+    /**
+     * 创建当前容器配置的 TextStyle
+     */
+    skia::textlayout::TextStyle getTextStyle() const;
+
+    /**
+     * 创建当前容器配置的 ParagraphStyle
+     */
+    skia::textlayout::ParagraphStyle getParagraphStyle() const;
+
+    /**
+     * 创建当前容器配置的 SkFont（用于简单文本测量）
+     */
+    SkFont getFont() const;
 
     // 背景属性
     Color m_backgroundColor = Color::White();

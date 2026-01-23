@@ -90,23 +90,29 @@ void LiteWindow::Render()
 
     if (rootContainer_ && skiaRenderer_)
     {
-        skiaRenderer_->begin();
+        // 先执行更新逻辑（如光标闪烁），这可能会触发 markDirty
+        rootContainer_->updateTree();
         
-        // 计算布局
+        // 只有在脏状态时才重新渲染
         if (rootContainer_->isDirty())
         {
+            // 重新计算布局
             rootContainer_->setWidth(liteDui::LayoutValue::Point(static_cast<float>(width_)));
             rootContainer_->setHeight(liteDui::LayoutValue::Point(static_cast<float>(height_)));
             rootContainer_->calculateLayout(static_cast<float>(width_), static_cast<float>(height_));
-            rootContainer_->clearDirty();
+            
+            // 执行渲染
+            skiaRenderer_->begin();
+            SkCanvas *canvas = skiaRenderer_->getCanvas();
+            if (canvas)
+            {
+                rootContainer_->renderTree(canvas);
+            }
+            skiaRenderer_->end();
+            
+            // 清除整棵树的脏标记
+            rootContainer_->clearDirtyTree();
         }
-
-        SkCanvas *canvas = skiaRenderer_->getCanvas();
-        if (canvas)
-        {
-            rootContainer_->renderTree(canvas);
-        }
-        skiaRenderer_->end();
     }
 }
 

@@ -94,8 +94,13 @@ public:
 
     // 脏标记
     bool isDirty() const { return m_dirty; }
-    void markDirty() { m_dirty = true; }
+    void markDirty();
     void clearDirty() { m_dirty = false; }
+    void clearDirtyTree();
+
+    // 更新逻辑（子类可重写，用于处理动画、光标闪烁等）
+    virtual void update() {}
+    void updateTree();
 
     // 渲染
     virtual void render(SkCanvas* canvas) {}
