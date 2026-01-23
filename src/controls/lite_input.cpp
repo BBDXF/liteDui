@@ -152,6 +152,11 @@ void LiteInput::insertText(const std::string& text) {
         m_cursorPos += static_cast<int>(text.length());
     }
     
+    // 确保光标可见
+    float visibleWidth = getLayoutWidth() - getLayoutBorderLeft() - getLayoutBorderRight()
+                        - getLayoutPaddingLeft() - getLayoutPaddingRight();
+    ensureCursorVisible(visibleWidth);
+    
     resetCursorBlink();
     if (m_onTextChanged) m_onTextChanged(getText());
 }
@@ -403,6 +408,11 @@ void LiteInput::handleSpecialKey(const KeyEvent& event) {
         break;
     }
     
+    // 确保光标可见
+    float visibleWidth = getLayoutWidth() - getLayoutBorderLeft() - getLayoutBorderRight()
+                        - getLayoutPaddingLeft() - getLayoutPaddingRight();
+    ensureCursorVisible(visibleWidth);
+    
     markDirty();
 }
 
@@ -511,7 +521,7 @@ void LiteInput::render(SkCanvas* canvas) {
             cursorX += positions[m_cursorPos] - m_scrollOffset;
         }
 
-        printf("Cursor: %d => %.2f.  %.2f\r\n", m_cursorPos, positions[m_cursorPos], cursorX);
+        // printf("Cursor: %d => %.2f.  %.2f\r\n", m_cursorPos, positions[m_cursorPos], cursorX);
         
         float textHeight = getFontSize() * 1.2f;
         if (!displayText.empty()) {
@@ -545,6 +555,9 @@ void LiteInput::onMousePressed(const MouseEvent& event) {
     m_selectionStart = m_cursorPos;
     m_selectionEnd = m_cursorPos;
     m_isDragging = true;
+    
+    // 确保光标可见
+    ensureCursorVisible(visibleWidth);
     
     resetCursorBlink();
     markDirty();
