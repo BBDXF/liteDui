@@ -4,6 +4,7 @@
  */
 
 #include "lite_input.h"
+#include "lite_utf8.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkRect.h"
@@ -11,6 +12,7 @@
 #include "modules/skparagraph/include/Paragraph.h"
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 
 using namespace skia::textlayout;
 
@@ -55,9 +57,14 @@ void LiteInput::setReadOnly(bool readOnly) {
 
 void LiteInput::setMaxLength(int maxLength) {
     m_maxLength = maxLength;
-    if (maxLength > 0 && getText().length() > static_cast<size_t>(maxLength)) {
-        setText(getText().substr(0, maxLength));
-        m_cursorPos = std::min(m_cursorPos, maxLength);
+    if (maxLength > 0 && Utf8Helper::getCharCount(getText()) > maxLength) {
+        // 按字符数截断
+        auto codePoints = Utf8Helper::toCodePoints(getText());
+        if (static_cast<int>(codePoints.size()) > maxLength) {
+            int bytePos = Utf8Helper::codePointIndexToByte(codePoints, maxLength, static_cast<int>(getText().length()));
+            setText(getText().substr(0, bytePos));
+        }
+        m_cursorPos = std::min(m_cursorPos, static_cast<int>(getText().length()));
     }
 }
 
@@ -119,10 +126,23 @@ void LiteInput::insertText(const std::string& text) {
     deleteSelected();
     
     std::string current = getText();
+    
+    // 检查最大长度限制（按字符数）
     if (m_maxLength > 0) {
-        int available = m_maxLength - static_cast<int>(current.length());
+        int currentCharCount = Utf8Helper::getCharCount(current);
+        int insertCharCount = Utf8Helper::getCharCount(text);
+        int available = m_maxLength - currentCharCount;
+        
         if (available <= 0) return;
-        std::string toInsert = text.substr(0, available);
+        
+        std::string toInsert = text;
+        if (insertCharCount > available) {
+            // 按字符数截断要插入的文本
+            auto codePoints = Utf8Helper::toCodePoints(text);
+            int bytePos = Utf8Helper::codePointIndexToByte(codePoints, available, static_cast<int>(text.length()));
+            toInsert = text.substr(0, bytePos);
+        }
+        
         std::string newText = current.substr(0, m_cursorPos) + toInsert + current.substr(m_cursorPos);
         setText(newText);
         m_cursorPos += static_cast<int>(toInsert.length());
@@ -145,7 +165,6 @@ void LiteInput::setState(ControlState state) {
     m_state = state;
     updateAppearance();
     
-    // 获得焦点时重置光标闪烁
     if (isFocused) {
         resetCursorBlink();
     }
@@ -178,7 +197,9 @@ void LiteInput::updateAppearance() {
 
 std::string LiteInput::getDisplayText() const {
     if (m_inputType == InputType::Password) {
-        return std::string(getText().length(), '*');
+        // 密码模式：每个字符显示为 *
+        int charCount = Utf8Helper::getCharCount(getText());
+        return std::string(charCount, '*');
     }
     return getText();
 }
@@ -190,11 +211,9 @@ std::unique_ptr<Paragraph> LiteInput::buildParagraph(
     auto& fontMgr = getFontManager();
     auto fontCollection = fontMgr.getFontCollection();
     
-    // 创建段落样式（输入框始终左对齐）
     ParagraphStyle paraStyle;
     paraStyle.setTextAlign(skia::textlayout::TextAlign::kLeft);
     
-    // 创建文本样式
     auto textStyle = fontMgr.createTextStyle(color, getFontSize(), getFontFamily());
     
     auto builder = ParagraphBuilder::make(paraStyle, fontCollection);
@@ -207,31 +226,28 @@ std::unique_ptr<Paragraph> LiteInput::buildParagraph(
     return paragraph;
 }
 
-// 计算每个字符位置的 X 坐标（使用 skparagraph 的 getRectsForRange）
+// 计算每个字符位置的 X 坐标
 std::vector<float> LiteInput::getCharPositions(const std::string& text, float maxWidth) const {
     std::vector<float> positions(text.length() + 1, 0);
     
     if (text.empty()) return positions;
     
     auto paragraph = buildParagraph(text, getTextColor(), maxWidth);
+    auto codePoints = Utf8Helper::toCodePoints(text);
     
-    // 遍历每个字符位置
-    size_t i = 0;
-    while (i < text.length()) {
-        // 确定 UTF-8 字符的字节数
-        unsigned char c = text[i];
-        size_t charLen = 1;
-        if ((c & 0x80) == 0) charLen = 1;
-        else if ((c & 0xE0) == 0xC0) charLen = 2;
-        else if ((c & 0xF0) == 0xE0) charLen = 3;
-        else if ((c & 0xF8) == 0xF0) charLen = 4;
+    // 遍历每个码点，获取其结束位置
+    for (size_t i = 0; i < codePoints.size(); ++i) {
+        const auto& cp = codePoints[i];
+        int endByte = cp.byteOffset + cp.byteLength;
         
-        size_t nextPos = std::min(i + charLen, text.length());
+        // 将 UTF-8 字节偏移转换为 UTF-16 代码单元索引
+        // Skia 的 getRectsForRange API 使用 UTF-16 索引
+        int utf16End = Utf8Helper::utf8ByteToUtf16Index(text, endByte);
         
-        // 使用 getRectsForRange 获取字符的边界框
+        // 使用 getRectsForRange 获取从开始到当前字符结束的边界框
         auto rects = paragraph->getRectsForRange(
-            0, nextPos, 
-            RectHeightStyle::kTight, 
+            0, utf16End,
+            RectHeightStyle::kTight,
             RectWidthStyle::kTight);
         
         float width = 0;
@@ -240,26 +256,38 @@ std::vector<float> LiteInput::getCharPositions(const std::string& text, float ma
         }
         
         // 填充该字符所有字节位置为相同宽度
-        for (size_t j = i + 1; j <= nextPos; ++j) {
+        for (int j = cp.byteOffset + 1; j <= endByte && j <= static_cast<int>(text.length()); ++j) {
             positions[j] = width;
         }
-        i = nextPos;
     }
     
     return positions;
 }
 
-// 根据 X 坐标找到最近的字符位置
+// 根据 X 坐标找到最近的字符边界位置
 int LiteInput::xToCharIndex(const std::string& text, float x, float maxWidth) const {
     if (text.empty()) return 0;
     
+    auto codePoints = Utf8Helper::toCodePoints(text);
+    if (codePoints.empty()) return 0;
+    
     auto positions = getCharPositions(text, maxWidth);
     
-    // 找到最接近 x 的位置
-    for (size_t i = 0; i < positions.size() - 1; ++i) {
-        float mid = (positions[i] + positions[i + 1]) / 2;
-        if (x < mid) return static_cast<int>(i);
+    // 遍历每个字符边界，找到最接近 x 的位置
+    for (size_t i = 0; i < codePoints.size(); ++i) {
+        const auto& cp = codePoints[i];
+        int startByte = cp.byteOffset;
+        int endByte = cp.byteOffset + cp.byteLength;
+        
+        float startX = positions[startByte];
+        float endX = positions[endByte];
+        float mid = (startX + endX) / 2;
+        
+        if (x < mid) {
+            return startByte;
+        }
     }
+    
     return static_cast<int>(text.length());
 }
 
@@ -271,16 +299,12 @@ void LiteInput::ensureCursorVisible(float visibleWidth) {
     float cursorX = (m_cursorPos < static_cast<int>(positions.size())) 
                     ? positions[m_cursorPos] : positions.back();
     
-    // 光标在可见区域左边
     if (cursorX - m_scrollOffset < 0) {
         m_scrollOffset = cursorX;
-    }
-    // 光标在可见区域右边
-    else if (cursorX - m_scrollOffset > visibleWidth) {
+    } else if (cursorX - m_scrollOffset > visibleWidth) {
         m_scrollOffset = cursorX - visibleWidth;
     }
     
-    // 确保滚动偏移不为负
     m_scrollOffset = std::max(0.0f, m_scrollOffset);
 }
 
@@ -288,82 +312,74 @@ void LiteInput::handleCharInput(unsigned int codepoint) {
     if (m_state != ControlState::Focused || m_readOnly) return;
     
     if (m_inputType == InputType::Number) {
-        if (codepoint > 127 || (!std::isdigit(codepoint) && codepoint != '-' && codepoint != '.')) return;
+        if (codepoint > 127 || (!std::isdigit(codepoint) && codepoint != '-' && codepoint != '.')) {
+            return;
+        }
     }
     
-    // Unicode codepoint 转 UTF-8
-    std::string utf8;
-    if (codepoint < 0x80) {
-        utf8 = static_cast<char>(codepoint);
-    } else if (codepoint < 0x800) {
-        utf8 += static_cast<char>(0xC0 | (codepoint >> 6));
-        utf8 += static_cast<char>(0x80 | (codepoint & 0x3F));
-    } else if (codepoint < 0x10000) {
-        utf8 += static_cast<char>(0xE0 | (codepoint >> 12));
-        utf8 += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-        utf8 += static_cast<char>(0x80 | (codepoint & 0x3F));
-    } else {
-        utf8 += static_cast<char>(0xF0 | (codepoint >> 18));
-        utf8 += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
-        utf8 += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-        utf8 += static_cast<char>(0x80 | (codepoint & 0x3F));
-    }
-    
-    insertText(utf8);
+    insertText(Utf8Helper::codepointToUtf8(codepoint));
 }
 
 void LiteInput::handleSpecialKey(const KeyEvent& event) {
-    bool shift = event.mods & 1; // Shift 键
-    if(!event.pressed) return;
+    if (!event.pressed) return;
+    
+    bool shift = event.mods & 1;
+    std::string current = getText();
     
     switch (event.keyCode) {
     case 259: // Backspace
         if (hasSelection()) {
             deleteSelected();
         } else if (m_cursorPos > 0) {
-            std::string current = getText();
-            setText(current.substr(0, m_cursorPos - 1) + current.substr(m_cursorPos));
-            m_cursorPos--;
+            int prevPos = Utf8Helper::getPrevCharPos(current, m_cursorPos);
+            setText(current.substr(0, prevPos) + current.substr(m_cursorPos));
+            m_cursorPos = prevPos;
             resetCursorBlink();
             if (m_onTextChanged) m_onTextChanged(getText());
         }
         break;
+        
     case 261: // Delete
         if (hasSelection()) {
             deleteSelected();
-        } else if (m_cursorPos < static_cast<int>(getText().length())) {
-            std::string current = getText();
-            setText(current.substr(0, m_cursorPos) + current.substr(m_cursorPos + 1));
+        } else if (m_cursorPos < static_cast<int>(current.length())) {
+            int nextPos = Utf8Helper::getNextCharPos(current, m_cursorPos);
+            setText(current.substr(0, m_cursorPos) + current.substr(nextPos));
             resetCursorBlink();
             if (m_onTextChanged) m_onTextChanged(getText());
         }
         break;
+        
     case 263: // Left
         if (m_cursorPos > 0) {
+            int newPos = Utf8Helper::getPrevCharPos(current, m_cursorPos);
             if (shift) {
                 if (!hasSelection()) m_selectionStart = m_cursorPos;
-                m_cursorPos--;
+                m_cursorPos = newPos;
                 m_selectionEnd = m_cursorPos;
             } else {
-                m_cursorPos--;
+                m_cursorPos = newPos;
                 clearSelection();
             }
             resetCursorBlink();
         }
         break;
+        
     case 262: // Right
-        if (m_cursorPos < static_cast<int>(getText().length())) {
+        if (m_cursorPos < static_cast<int>(current.length())) {
+            int newPos = Utf8Helper::getNextCharPos(current, m_cursorPos);
             if (shift) {
                 if (!hasSelection()) m_selectionStart = m_cursorPos;
-                m_cursorPos++;
+                m_cursorPos = newPos;
                 m_selectionEnd = m_cursorPos;
             } else {
-                m_cursorPos++;
+                m_cursorPos = newPos;
                 clearSelection();
             }
             resetCursorBlink();
         }
         break;
+        
     case 268: // Home
         if (shift) {
             if (!hasSelection()) m_selectionStart = m_cursorPos;
@@ -374,17 +390,19 @@ void LiteInput::handleSpecialKey(const KeyEvent& event) {
         m_cursorPos = 0;
         resetCursorBlink();
         break;
+        
     case 269: // End
         if (shift) {
             if (!hasSelection()) m_selectionStart = m_cursorPos;
-            m_selectionEnd = static_cast<int>(getText().length());
+            m_selectionEnd = static_cast<int>(current.length());
         } else {
             clearSelection();
         }
-        m_cursorPos = static_cast<int>(getText().length());
+        m_cursorPos = static_cast<int>(current.length());
         resetCursorBlink();
         break;
     }
+    
     markDirty();
 }
 
@@ -425,13 +443,11 @@ void LiteInput::resetCursorBlink() {
     markDirty();
 }
 
-// 更新逻辑 - 处理光标闪烁
 void LiteInput::update() {
     updateCursorBlink();
 }
 
 void LiteInput::render(SkCanvas* canvas) {
-    // 绘制背景和边框
     float w = getLayoutWidth();
     float h = getLayoutHeight();
     if (w <= 0 || h <= 0) return;
@@ -453,15 +469,12 @@ void LiteInput::render(SkCanvas* canvas) {
     std::string displayText = getDisplayText();
     bool showPlaceholder = displayText.empty() && !m_placeholder.empty();
     
-    // 确保光标可见
     if (m_state == ControlState::Focused) {
         ensureCursorVisible(visibleWidth);
     }
     
-    // 设置裁剪区域
     canvas->save();
     
-    // 计算字符位置
     auto positions = getCharPositions(displayText, visibleWidth + m_scrollOffset + 100);
     
     // 绘制选择高亮
@@ -469,16 +482,17 @@ void LiteInput::render(SkCanvas* canvas) {
         int selStart = std::min(m_selectionStart, m_selectionEnd);
         int selEnd = std::max(m_selectionStart, m_selectionEnd);
         
-        float startX = positions[selStart] - m_scrollOffset;
-        float endX = positions[selEnd] - m_scrollOffset;
-        
-        // 获取文本高度
-        auto paragraph = buildParagraph(displayText, getTextColor(), visibleWidth + m_scrollOffset + 100);
-        float textHeight = paragraph->getHeight();
-        
-        SkPaint selPaint;
-        selPaint.setColor(m_selectionColor.toARGB());
-        canvas->drawRect(SkRect::MakeXYWH(textX + startX, textY, endX - startX, textHeight), selPaint);
+        if (selStart < static_cast<int>(positions.size()) && selEnd < static_cast<int>(positions.size())) {
+            float startX = positions[selStart] - m_scrollOffset;
+            float endX = positions[selEnd] - m_scrollOffset;
+            
+            auto paragraph = buildParagraph(displayText, getTextColor(), visibleWidth + m_scrollOffset + 100);
+            float textHeight = paragraph->getHeight();
+            
+            SkPaint selPaint;
+            selPaint.setColor(m_selectionColor.toARGB());
+            canvas->drawRect(SkRect::MakeXYWH(textX + startX, textY, endX - startX, textHeight), selPaint);
+        }
     }
     
     // 绘制文本
@@ -490,12 +504,16 @@ void LiteInput::render(SkCanvas* canvas) {
         paragraph->paint(canvas, textX - m_scrollOffset, textY);
     }
     
-    // 绘制光标 - 只在聚焦状态且光标可见时绘制
+    // 绘制光标
     if (m_state == ControlState::Focused && m_cursorVisible) {
-        float cursorX = textX + positions[m_cursorPos] - m_scrollOffset;
+        float cursorX = textX;
+        if (m_cursorPos < static_cast<int>(positions.size())) {
+            cursorX += positions[m_cursorPos] - m_scrollOffset;
+        }
+
+        printf("Cursor: %d => %.2f.  %.2f\r\n", m_cursorPos, positions[m_cursorPos], cursorX);
         
-        // 获取文本高度用于光标
-        float textHeight = getFontSize() * 1.2f; // 默认行高
+        float textHeight = getFontSize() * 1.2f;
         if (!displayText.empty()) {
             auto paragraph = buildParagraph(displayText, getTextColor(), visibleWidth + m_scrollOffset + 100);
             textHeight = paragraph->getHeight();
@@ -514,9 +532,6 @@ void LiteInput::render(SkCanvas* canvas) {
 void LiteInput::onMousePressed(const MouseEvent& event) {
     if (m_state == ControlState::Disabled) return;
     
-    // 注意：焦点切换由 LiteWindow 在分发鼠标事件时统一处理
-    // 这里只处理光标定位和选择逻辑
-    
     float padL = getLayoutPaddingLeft();
     float borderL = getLayoutBorderLeft();
     float x = event.x - borderL - padL + m_scrollOffset;
@@ -527,7 +542,6 @@ void LiteInput::onMousePressed(const MouseEvent& event) {
     std::string displayText = getDisplayText();
     m_cursorPos = xToCharIndex(displayText, x, visibleWidth + m_scrollOffset + 100);
     
-    // 开始选择
     m_selectionStart = m_cursorPos;
     m_selectionEnd = m_cursorPos;
     m_isDragging = true;
@@ -553,7 +567,6 @@ void LiteInput::onCharInput(unsigned int codepoint) {
     handleCharInput(codepoint);
 }
 
-// 焦点事件处理
 void LiteInput::onFocusGained() {
     setState(ControlState::Focused);
     resetCursorBlink();
