@@ -1,6 +1,7 @@
 /**
  * 04_gui_demo - 使用 liteDui 库提供的窗口和控件功能
- * 展示所有控件：Button, Input, Image, Checkbox, RadioButton, List, ScrollView
+ * 展示所有控件：Button, Input, Image, Checkbox, RadioButton, List, ScrollView,
+ *              GroupBox, TabView, Table
  */
 
 #include "lite_window.h"
@@ -13,10 +14,180 @@
 #include "lite_radio_button.h"
 #include "lite_list.h"
 #include "lite_scroll_view.h"
+#include "lite_group_box.h"
+#include "lite_tab_view.h"
+#include "lite_table.h"
 #include <iostream>
 #include <memory>
 
 using namespace liteDui;
+
+// 创建登录表单标签页内容
+LiteContainerPtr createLoginTab() {
+    auto content = std::make_shared<LiteContainer>();
+    content->setBackgroundColor(Color::White());
+    content->setFlexDirection(FlexDirection::Column);
+    content->setPadding(EdgeInsets::All(15));
+    content->setGap(10);
+    content->setWidth(LayoutValue::Percent(100));
+    content->setFlexGrow(1);
+
+    // 用户名输入
+    auto nameLabel = std::make_shared<LiteContainer>();
+    nameLabel->setText("Username:");
+    nameLabel->setHeight(20);
+    nameLabel->setBackgroundColor(Color::Transparent());
+    content->addChild(nameLabel);
+
+    auto nameInput = std::make_shared<LiteInput>("Enter username...");
+    nameInput->setWidth(LayoutValue::Percent(100));
+    nameInput->setHeight(36);
+    content->addChild(nameInput);
+
+    // 密码输入
+    auto pwdLabel = std::make_shared<LiteContainer>();
+    pwdLabel->setText("Password:");
+    pwdLabel->setHeight(20);
+    pwdLabel->setBackgroundColor(Color::Transparent());
+    content->addChild(pwdLabel);
+
+    auto passwordInput = std::make_shared<LiteInput>("Enter password...");
+    passwordInput->setWidth(LayoutValue::Percent(100));
+    passwordInput->setHeight(36);
+    passwordInput->setInputType(InputType::Password);
+    content->addChild(passwordInput);
+
+    // 选项
+    auto rememberCheckbox = std::make_shared<LiteCheckbox>("Remember me");
+    rememberCheckbox->setWidth(LayoutValue::Percent(100));
+    rememberCheckbox->setHeight(30);
+    content->addChild(rememberCheckbox);
+
+    auto autoLoginCheckbox = std::make_shared<LiteCheckbox>("Auto login");
+    autoLoginCheckbox->setWidth(LayoutValue::Percent(100));
+    autoLoginCheckbox->setHeight(30);
+    content->addChild(autoLoginCheckbox);
+
+    return content;
+}
+
+// 静态变量保持 RadioGroup 的生命周期
+static LiteRadioGroupPtr s_themeRadioGroup;
+
+// 创建设置标签页内容
+LiteContainerPtr createSettingsTab() {
+    auto content = std::make_shared<LiteContainer>();
+    content->setBackgroundColor(Color::White());
+    content->setFlexDirection(FlexDirection::Column);
+    content->setPadding(EdgeInsets::All(15));
+    content->setGap(10);
+    content->setWidth(LayoutValue::Percent(100));
+    content->setFlexGrow(1);
+
+    // 主题设置 GroupBox
+    auto themeGroup = std::make_shared<LiteGroupBox>("Theme Settings");
+    themeGroup->setWidth(LayoutValue::Percent(100));
+    themeGroup->setHeight(130);
+    themeGroup->setFlexDirection(FlexDirection::Column);
+    themeGroup->setGap(5);
+
+    // 创建单选组（使用静态变量保持生命周期）
+    s_themeRadioGroup = std::make_shared<LiteRadioGroup>();
+
+    auto lightThemeRadio = std::make_shared<LiteRadioButton>("Light Theme");
+    lightThemeRadio->setWidth(LayoutValue::Percent(100));
+    lightThemeRadio->setHeight(28);
+    lightThemeRadio->setGroup(s_themeRadioGroup.get());
+    lightThemeRadio->setSelected(true);
+    themeGroup->addChild(lightThemeRadio);
+
+    auto darkThemeRadio = std::make_shared<LiteRadioButton>("Dark Theme");
+    darkThemeRadio->setWidth(LayoutValue::Percent(100));
+    darkThemeRadio->setHeight(28);
+    darkThemeRadio->setGroup(s_themeRadioGroup.get());
+    themeGroup->addChild(darkThemeRadio);
+
+    auto systemThemeRadio = std::make_shared<LiteRadioButton>("System Default");
+    systemThemeRadio->setWidth(LayoutValue::Percent(100));
+    systemThemeRadio->setHeight(28);
+    systemThemeRadio->setGroup(s_themeRadioGroup.get());
+    themeGroup->addChild(systemThemeRadio);
+
+    content->addChild(themeGroup);
+
+    // 通知设置 GroupBox
+    auto notifyGroup = std::make_shared<LiteGroupBox>("Notifications");
+    notifyGroup->setWidth(LayoutValue::Percent(100));
+    notifyGroup->setHeight(100);
+    notifyGroup->setFlexDirection(FlexDirection::Column);
+    notifyGroup->setGap(5);
+
+    auto emailNotify = std::make_shared<LiteCheckbox>("Email notifications");
+    emailNotify->setWidth(LayoutValue::Percent(100));
+    emailNotify->setHeight(28);
+    emailNotify->setChecked(true);
+    notifyGroup->addChild(emailNotify);
+
+    auto pushNotify = std::make_shared<LiteCheckbox>("Push notifications");
+    pushNotify->setWidth(LayoutValue::Percent(100));
+    pushNotify->setHeight(28);
+    notifyGroup->addChild(pushNotify);
+
+    content->addChild(notifyGroup);
+
+    return content;
+}
+
+// 创建数据标签页内容（包含表格）
+LiteContainerPtr createDataTab() {
+    auto content = std::make_shared<LiteContainer>();
+    content->setBackgroundColor(Color::White());
+    content->setFlexDirection(FlexDirection::Column);
+    content->setPadding(EdgeInsets::All(10));
+    content->setGap(10);
+    content->setWidth(LayoutValue::Percent(100));
+    content->setFlexGrow(1);
+
+    auto tableLabel = std::make_shared<LiteContainer>();
+    tableLabel->setText("User Data Table:");
+    tableLabel->setHeight(25);
+    tableLabel->setBackgroundColor(Color::Transparent());
+    tableLabel->setFontSize(14);
+    content->addChild(tableLabel);
+
+    // 创建表格
+    auto table = std::make_shared<LiteTable>();
+    table->setWidth(LayoutValue::Percent(100));
+    table->setFlexGrow(1);
+    
+    // 添加列
+    table->addColumn("ID", 60, TextAlign::Center);
+    table->addColumn("Name", 120, TextAlign::Left);
+    table->addColumn("Email", 180, TextAlign::Left);
+    table->addColumn("Status", 80, TextAlign::Center);
+
+    // 添加数据行
+    table->addRow({"1", "Alice", "alice@example.com", "Active"});
+    table->addRow({"2", "Bob", "bob@example.com", "Active"});
+    table->addRow({"3", "Charlie", "charlie@example.com", "Inactive"});
+    table->addRow({"4", "Diana", "diana@example.com", "Active"});
+    table->addRow({"5", "Eve", "eve@example.com", "Pending"});
+    table->addRow({"6", "Frank", "frank@example.com", "Active"});
+    table->addRow({"7", "Grace", "grace@example.com", "Inactive"});
+    table->addRow({"8", "Henry", "henry@example.com", "Active"});
+
+    table->setOnRowClicked([](int row) {
+        std::cout << "Table row clicked: " << row << std::endl;
+    });
+
+    table->setOnCellClicked([](int row, int col) {
+        std::cout << "Table cell clicked: row=" << row << ", col=" << col << std::endl;
+    });
+
+    content->addChild(table);
+
+    return content;
+}
 
 int main() {
     std::cout << "Starting liteDui GUI Demo - All Controls" << std::endl;
@@ -25,7 +196,7 @@ int main() {
     LiteWindowManager manager;
 
     // 2. 创建窗口
-    auto window = manager.CreateWindow(900, 700, "liteDui GUI Demo - All Controls");
+    auto window = manager.CreateWindow(950, 700, "liteDui GUI Demo - All Controls");
     if (!window) {
         std::cerr << "Failed to create window" << std::endl;
         return 1;
@@ -35,21 +206,21 @@ int main() {
     auto root = std::make_shared<LiteContainer>();
     root->setWidth(LayoutValue::Percent(100));
     root->setHeight(LayoutValue::Percent(100));
-    root->setBackgroundColor(Color::fromRGB(245, 245, 245));
-    root->setPadding(EdgeInsets::All(20));
+    root->setBackgroundColor(Color::fromRGB(240, 240, 240));
+    root->setPadding(EdgeInsets::All(15));
     root->setFlexDirection(FlexDirection::Column);
-    root->setGap(15);
+    root->setGap(12);
 
     // 4. 标题
     auto title = std::make_shared<LiteContainer>();
     title->setWidth(LayoutValue::Percent(100));
     title->setHeight(40);
     title->setText("liteDui GUI Demo - All Controls");
-    title->setFontSize(22);
+    title->setFontSize(20);
     title->setTextColor(Color::fromRGB(33, 33, 33));
     title->setTextAlign(TextAlign::Center);
     title->setBackgroundColor(Color::White());
-    title->setBorderRadius(EdgeInsets::All(8));
+    title->setBorderRadius(EdgeInsets::All(6));
     root->addChild(title);
 
     // 5. 主内容区域 - 左右两栏布局
@@ -57,199 +228,64 @@ int main() {
     mainContent->setWidth(LayoutValue::Percent(100));
     mainContent->setFlexGrow(1);
     mainContent->setFlexDirection(FlexDirection::Row);
-    mainContent->setGap(15);
+    mainContent->setGap(12);
     mainContent->setBackgroundColor(Color::Transparent());
 
     // ==================== 左侧栏 ====================
     auto leftColumn = std::make_shared<LiteContainer>();
-    leftColumn->setWidth(LayoutValue::Percent(50));
+    leftColumn->setWidth(LayoutValue::Percent(45));
     leftColumn->setFlexDirection(FlexDirection::Column);
-    leftColumn->setGap(15);
+    leftColumn->setGap(12);
     leftColumn->setBackgroundColor(Color::Transparent());
 
     // --- 图片控件区域 ---
-    auto imageSection = std::make_shared<LiteContainer>();
+    auto imageSection = std::make_shared<LiteGroupBox>("Image Control");
     imageSection->setWidth(LayoutValue::Percent(100));
-    imageSection->setBackgroundColor(Color::White());
-    imageSection->setBorderRadius(EdgeInsets::All(8));
-    imageSection->setPadding(EdgeInsets::All(15));
+    imageSection->setHeight(140);
     imageSection->setFlexDirection(FlexDirection::Column);
-    imageSection->setGap(10);
-
-    auto imageSectionTitle = std::make_shared<LiteContainer>();
-    imageSectionTitle->setText("Image Control");
-    imageSectionTitle->setFontSize(16);
-    imageSectionTitle->setTextColor(Color::fromRGB(66, 133, 244));
-    imageSectionTitle->setHeight(25);
-    imageSectionTitle->setBackgroundColor(Color::Transparent());
-    imageSection->addChild(imageSectionTitle);
 
     auto imageDemo = std::make_shared<LiteImage>();
     imageDemo->setWidth(LayoutValue::Percent(100));
-    imageDemo->setHeight(120);
+    imageDemo->setFlexGrow(1);
     imageDemo->setScaleMode(ImageScaleMode::Fit);
-    imageDemo->setPlaceholderColor(Color::fromRGB(230, 230, 230));
+    imageDemo->setPlaceholderColor(Color::fromRGB(220, 220, 220));
     imageDemo->setBorderRadius(EdgeInsets::All(4));
-    // 如果有图片文件可以设置路径: imageDemo->setImagePath("path/to/image.png");
     imageSection->addChild(imageDemo);
 
     leftColumn->addChild(imageSection);
 
-    // --- 输入框区域 ---
-    auto inputSection = std::make_shared<LiteContainer>();
-    inputSection->setWidth(LayoutValue::Percent(100));
-    inputSection->setBackgroundColor(Color::White());
-    inputSection->setBorderRadius(EdgeInsets::All(8));
-    inputSection->setPadding(EdgeInsets::All(15));
-    inputSection->setFlexDirection(FlexDirection::Column);
-    inputSection->setGap(8);
+    // --- TabView 区域 ---
+    auto tabView = std::make_shared<LiteTabView>();
+    tabView->setWidth(LayoutValue::Percent(100));
+    tabView->setFlexGrow(1);
+    tabView->setTabHeight(32);
 
-    auto inputSectionTitle = std::make_shared<LiteContainer>();
-    inputSectionTitle->setText("Input Controls");
-    inputSectionTitle->setFontSize(16);
-    inputSectionTitle->setTextColor(Color::fromRGB(66, 133, 244));
-    inputSectionTitle->setHeight(25);
-    inputSectionTitle->setBackgroundColor(Color::Transparent());
-    inputSection->addChild(inputSectionTitle);
+    // 添加标签页
+    tabView->addTab("Login", createLoginTab());
+    tabView->addTab("Settings", createSettingsTab());
+    tabView->addTab("Data", createDataTab());
 
-    auto nameLabel = std::make_shared<LiteContainer>();
-    nameLabel->setText("Username:");
-    nameLabel->setHeight(20);
-    nameLabel->setBackgroundColor(Color::Transparent());
-    inputSection->addChild(nameLabel);
-
-    auto nameInput = std::make_shared<LiteInput>("Enter username...");
-    nameInput->setWidth(LayoutValue::Percent(100));
-    nameInput->setHeight(36);
-    inputSection->addChild(nameInput);
-
-    auto pwdLabel = std::make_shared<LiteContainer>();
-    pwdLabel->setText("Password:");
-    pwdLabel->setHeight(20);
-    pwdLabel->setBackgroundColor(Color::Transparent());
-    inputSection->addChild(pwdLabel);
-
-    auto passwordInput = std::make_shared<LiteInput>("Enter password...");
-    passwordInput->setWidth(LayoutValue::Percent(100));
-    passwordInput->setHeight(36);
-    passwordInput->setInputType(InputType::Password);
-    inputSection->addChild(passwordInput);
-
-    leftColumn->addChild(inputSection);
-
-    // --- Checkbox 区域 ---
-    auto checkboxSection = std::make_shared<LiteContainer>();
-    checkboxSection->setWidth(LayoutValue::Percent(100));
-    checkboxSection->setBackgroundColor(Color::White());
-    checkboxSection->setBorderRadius(EdgeInsets::All(8));
-    checkboxSection->setPadding(EdgeInsets::All(15));
-    checkboxSection->setFlexDirection(FlexDirection::Column);
-    checkboxSection->setGap(8);
-
-    auto checkboxSectionTitle = std::make_shared<LiteContainer>();
-    checkboxSectionTitle->setText("Checkbox Controls");
-    checkboxSectionTitle->setFontSize(16);
-    checkboxSectionTitle->setTextColor(Color::fromRGB(66, 133, 244));
-    checkboxSectionTitle->setHeight(25);
-    checkboxSectionTitle->setBackgroundColor(Color::Transparent());
-    checkboxSection->addChild(checkboxSectionTitle);
-
-    auto rememberCheckbox = std::make_shared<LiteCheckbox>("Remember me");
-    rememberCheckbox->setWidth(LayoutValue::Percent(100));
-    rememberCheckbox->setHeight(30);
-    rememberCheckbox->setOnChanged([](bool checked) {
-        std::cout << "Remember me: " << (checked ? "checked" : "unchecked") << std::endl;
+    tabView->setOnTabChanged([](int index) {
+        const char* tabs[] = {"Login", "Settings", "Data"};
+        std::cout << "Tab changed to: " << tabs[index] << std::endl;
     });
-    checkboxSection->addChild(rememberCheckbox);
 
-    auto autoLoginCheckbox = std::make_shared<LiteCheckbox>("Auto login");
-    autoLoginCheckbox->setWidth(LayoutValue::Percent(100));
-    autoLoginCheckbox->setHeight(30);
-    autoLoginCheckbox->setOnChanged([](bool checked) {
-        std::cout << "Auto login: " << (checked ? "checked" : "unchecked") << std::endl;
-    });
-    checkboxSection->addChild(autoLoginCheckbox);
-
-    auto notificationsCheckbox = std::make_shared<LiteCheckbox>("Enable notifications");
-    notificationsCheckbox->setWidth(LayoutValue::Percent(100));
-    notificationsCheckbox->setHeight(30);
-    notificationsCheckbox->setChecked(true);  // 默认选中
-    checkboxSection->addChild(notificationsCheckbox);
-
-    leftColumn->addChild(checkboxSection);
+    leftColumn->addChild(tabView);
 
     mainContent->addChild(leftColumn);
 
     // ==================== 右侧栏 ====================
     auto rightColumn = std::make_shared<LiteContainer>();
-    rightColumn->setWidth(LayoutValue::Percent(50));
+    rightColumn->setWidth(LayoutValue::Percent(55));
     rightColumn->setFlexDirection(FlexDirection::Column);
-    rightColumn->setGap(15);
+    rightColumn->setGap(12);
     rightColumn->setBackgroundColor(Color::Transparent());
 
-    // --- RadioButton 区域 ---
-    auto radioSection = std::make_shared<LiteContainer>();
-    radioSection->setWidth(LayoutValue::Percent(100));
-    radioSection->setBackgroundColor(Color::White());
-    radioSection->setBorderRadius(EdgeInsets::All(8));
-    radioSection->setPadding(EdgeInsets::All(15));
-    radioSection->setFlexDirection(FlexDirection::Column);
-    radioSection->setGap(8);
-
-    auto radioSectionTitle = std::make_shared<LiteContainer>();
-    radioSectionTitle->setText("RadioButton Controls");
-    radioSectionTitle->setFontSize(16);
-    radioSectionTitle->setTextColor(Color::fromRGB(66, 133, 244));
-    radioSectionTitle->setHeight(25);
-    radioSectionTitle->setBackgroundColor(Color::Transparent());
-    radioSection->addChild(radioSectionTitle);
-
-    // 创建单选组
-    auto themeGroup = std::make_shared<LiteRadioGroup>();
-
-    auto lightThemeRadio = std::make_shared<LiteRadioButton>("Light Theme");
-    lightThemeRadio->setWidth(LayoutValue::Percent(100));
-    lightThemeRadio->setHeight(30);
-    lightThemeRadio->setGroup(themeGroup.get());
-    lightThemeRadio->setSelected(true);  // 默认选中
-    radioSection->addChild(lightThemeRadio);
-
-    auto darkThemeRadio = std::make_shared<LiteRadioButton>("Dark Theme");
-    darkThemeRadio->setWidth(LayoutValue::Percent(100));
-    darkThemeRadio->setHeight(30);
-    darkThemeRadio->setGroup(themeGroup.get());
-    radioSection->addChild(darkThemeRadio);
-
-    auto systemThemeRadio = std::make_shared<LiteRadioButton>("System Default");
-    systemThemeRadio->setWidth(LayoutValue::Percent(100));
-    systemThemeRadio->setHeight(30);
-    systemThemeRadio->setGroup(themeGroup.get());
-    radioSection->addChild(systemThemeRadio);
-
-    themeGroup->setOnSelectionChanged([](int index) {
-        const char* themes[] = {"Light", "Dark", "System"};
-        std::cout << "Theme changed to: " << themes[index] << std::endl;
-    });
-
-    rightColumn->addChild(radioSection);
-
     // --- List 区域 ---
-    auto listSection = std::make_shared<LiteContainer>();
+    auto listSection = std::make_shared<LiteGroupBox>("Scrollable List");
     listSection->setWidth(LayoutValue::Percent(100));
     listSection->setFlexGrow(1);
-    listSection->setBackgroundColor(Color::White());
-    listSection->setBorderRadius(EdgeInsets::All(8));
-    listSection->setPadding(EdgeInsets::All(15));
     listSection->setFlexDirection(FlexDirection::Column);
-    listSection->setGap(8);
-
-    auto listSectionTitle = std::make_shared<LiteContainer>();
-    listSectionTitle->setText("List Control (Scrollable)");
-    listSectionTitle->setFontSize(16);
-    listSectionTitle->setTextColor(Color::fromRGB(66, 133, 244));
-    listSectionTitle->setHeight(25);
-    listSectionTitle->setBackgroundColor(Color::Transparent());
-    listSection->addChild(listSectionTitle);
 
     auto listDemo = std::make_shared<LiteList>();
     listDemo->setWidth(LayoutValue::Percent(100));
@@ -258,90 +294,91 @@ int main() {
     listDemo->setShowAlternateRows(true);
     
     // 添加列表项
-    listDemo->addItem("Item 1 - First item");
-    listDemo->addItem("Item 2 - Second item");
-    listDemo->addItem("Item 3 - Third item");
-    listDemo->addItem("Item 4 - Fourth item");
-    listDemo->addItem("Item 5 - Fifth item");
-    listDemo->addItem("Item 6 - Sixth item");
-    listDemo->addItem("Item 7 - Seventh item");
-    listDemo->addItem("Item 8 - Eighth item");
-    listDemo->addItem("Item 9 - Ninth item");
-    listDemo->addItem("Item 10 - Tenth item");
+    for (int i = 1; i <= 20; ++i) {
+        listDemo->addItem("List Item " + std::to_string(i) + " - Click or scroll to test");
+    }
     
     listDemo->setOnSelectionChanged([](int index) {
         std::cout << "List selection changed to index: " << index << std::endl;
-    });
-    
-    listDemo->setOnItemClicked([](int index) {
-        std::cout << "List item clicked: " << index << std::endl;
     });
 
     listSection->addChild(listDemo);
     rightColumn->addChild(listSection);
 
+    // --- 独立表格区域 ---
+    auto tableSection = std::make_shared<LiteGroupBox>("Data Table");
+    tableSection->setWidth(LayoutValue::Percent(100));
+    tableSection->setHeight(200);
+    tableSection->setFlexDirection(FlexDirection::Column);
+
+    auto table2 = std::make_shared<LiteTable>();
+    table2->setWidth(LayoutValue::Percent(100));
+    table2->setFlexGrow(1);
+    
+    table2->addColumn("Product", 150, TextAlign::Left);
+    table2->addColumn("Price", 80, TextAlign::Right);
+    table2->addColumn("Qty", 60, TextAlign::Center);
+    table2->addColumn("Total", 100, TextAlign::Right);
+
+    table2->addRow({"Laptop", "$999", "2", "$1998"});
+    table2->addRow({"Mouse", "$29", "5", "$145"});
+    table2->addRow({"Keyboard", "$79", "3", "$237"});
+    table2->addRow({"Monitor", "$299", "2", "$598"});
+    table2->addRow({"Headphones", "$149", "4", "$596"});
+
+    tableSection->addChild(table2);
+    rightColumn->addChild(tableSection);
+
     mainContent->addChild(rightColumn);
     root->addChild(mainContent);
 
-    // 6. 状态标签 (提前创建以便在按钮回调中使用)
+    // 6. 状态标签
     auto statusLabel = std::make_shared<LiteContainer>();
     statusLabel->setWidth(LayoutValue::Percent(100));
-    statusLabel->setHeight(30);
+    statusLabel->setHeight(28);
     statusLabel->setTextAlign(TextAlign::Center);
-    statusLabel->setFontSize(14);
+    statusLabel->setFontSize(13);
     statusLabel->setBackgroundColor(Color::White());
     statusLabel->setBorderRadius(EdgeInsets::All(4));
+    statusLabel->setText("Ready - Click controls to interact");
+    statusLabel->setTextColor(Color::fromRGB(100, 100, 100));
 
     // 7. 按钮区域
     auto btnArea = std::make_shared<LiteContainer>();
     btnArea->setWidth(LayoutValue::Percent(100));
-    btnArea->setHeight(50);
+    btnArea->setHeight(45);
     btnArea->setFlexDirection(FlexDirection::Row);
     btnArea->setJustifyContent(Align::Center);
-    btnArea->setGap(20);
+    btnArea->setGap(15);
     btnArea->setBackgroundColor(Color::Transparent());
 
-    auto loginBtn = std::make_shared<LiteButton>("Login");
-    loginBtn->setWidth(120);
-    loginBtn->setHeight(40);
-    loginBtn->setNormalBackgroundColor(Color::fromRGB(66, 133, 244));
-    loginBtn->setHoverBackgroundColor(Color::fromRGB(53, 122, 232));
-    loginBtn->setPressedBackgroundColor(Color::fromRGB(40, 100, 200));
-    loginBtn->setNormalTextColor(Color::White());
-    loginBtn->setHoverTextColor(Color::White());
-    loginBtn->setPressedTextColor(Color::White());
-    loginBtn->setOnClick([nameInput, passwordInput, statusLabel, rememberCheckbox](const MouseEvent& e) {
-        std::string name = nameInput->getValue();
-        std::string pwd = passwordInput->getValue();
-        if (!name.empty() && !pwd.empty()) {
-            std::string msg = "Welcome, " + name + "!";
-            if (rememberCheckbox->isChecked()) {
-                msg += " (Remembered)";
-            }
-            statusLabel->setText(msg);
-            statusLabel->setTextColor(Color::fromRGB(76, 175, 80));
-        } else {
-            statusLabel->setText("Please fill all fields");
-            statusLabel->setTextColor(Color::fromRGB(244, 67, 54));
-        }
+    auto actionBtn = std::make_shared<LiteButton>("Action");
+    actionBtn->setWidth(100);
+    actionBtn->setHeight(36);
+    actionBtn->setNormalBackgroundColor(Color::fromRGB(66, 133, 244));
+    actionBtn->setHoverBackgroundColor(Color::fromRGB(53, 122, 232));
+    actionBtn->setPressedBackgroundColor(Color::fromRGB(40, 100, 200));
+    actionBtn->setNormalTextColor(Color::White());
+    actionBtn->setHoverTextColor(Color::White());
+    actionBtn->setPressedTextColor(Color::White());
+    actionBtn->setOnClick([statusLabel](const MouseEvent& e) {
+        statusLabel->setText("Action button clicked!");
+        statusLabel->setTextColor(Color::fromRGB(66, 133, 244));
     });
-    btnArea->addChild(loginBtn);
+    btnArea->addChild(actionBtn);
 
-    auto clearBtn = std::make_shared<LiteButton>("Clear");
-    clearBtn->setWidth(120);
-    clearBtn->setHeight(40);
-    clearBtn->setOnClick([nameInput, passwordInput, statusLabel, rememberCheckbox, autoLoginCheckbox](const MouseEvent& e) {
-        nameInput->clear();
-        passwordInput->clear();
-        statusLabel->setText("");
-        rememberCheckbox->setChecked(false);
-        autoLoginCheckbox->setChecked(false);
+    auto resetBtn = std::make_shared<LiteButton>("Reset");
+    resetBtn->setWidth(100);
+    resetBtn->setHeight(36);
+    resetBtn->setOnClick([statusLabel](const MouseEvent& e) {
+        statusLabel->setText("Ready - Click controls to interact");
+        statusLabel->setTextColor(Color::fromRGB(100, 100, 100));
     });
-    btnArea->addChild(clearBtn);
+    btnArea->addChild(resetBtn);
 
     auto exitBtn = std::make_shared<LiteButton>("Exit");
-    exitBtn->setWidth(120);
-    exitBtn->setHeight(40);
+    exitBtn->setWidth(100);
+    exitBtn->setHeight(36);
     exitBtn->setNormalBackgroundColor(Color::fromRGB(244, 67, 54));
     exitBtn->setHoverBackgroundColor(Color::fromRGB(229, 57, 53));
     exitBtn->setPressedBackgroundColor(Color::fromRGB(198, 40, 40));
@@ -363,12 +400,16 @@ int main() {
     std::cout << "GUI created with all controls:" << std::endl;
     std::cout << "  - Image (placeholder shown)" << std::endl;
     std::cout << "  - Input (text and password)" << std::endl;
-    std::cout << "  - Checkbox (3 options)" << std::endl;
-    std::cout << "  - RadioButton (theme selection)" << std::endl;
-    std::cout << "  - List (scrollable, 10 items)" << std::endl;
-    std::cout << "  - Buttons (Login, Clear, Exit)" << std::endl;
+    std::cout << "  - Checkbox" << std::endl;
+    std::cout << "  - RadioButton (with RadioGroup)" << std::endl;
+    std::cout << "  - List (scrollable)" << std::endl;
+    std::cout << "  - ScrollView" << std::endl;
+    std::cout << "  - GroupBox" << std::endl;
+    std::cout << "  - TabView (3 tabs)" << std::endl;
+    std::cout << "  - Table (with headers and data)" << std::endl;
+    std::cout << "  - Buttons" << std::endl;
     std::cout << std::endl;
-    std::cout << "Try scrolling the list with mouse wheel!" << std::endl;
+    std::cout << "Try scrolling lists/tables with mouse wheel!" << std::endl;
 
     // 9. 运行主循环
     manager.Run();

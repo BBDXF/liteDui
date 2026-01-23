@@ -83,14 +83,14 @@ protected:
     bool isPointInVerticalScrollbar(float x, float y) const;
     bool isPointInHorizontalScrollbar(float x, float y) const;
 
-private:
-
+    // 滚动条属性 - 子类可访问
     ScrollDirection m_scrollDirection = ScrollDirection::Vertical;
     bool m_showScrollbar = true;
     float m_scrollbarWidth = 8.0f;
     Color m_scrollbarColor = Color::fromRGB(150, 150, 150);
     Color m_scrollbarTrackColor = Color::fromRGB(230, 230, 230);
 
+private:
     // 滚动条拖拽状态
     bool m_draggingVScrollbar = false;
     bool m_draggingHScrollbar = false;

@@ -130,6 +130,13 @@ enum class Display {
     None = 1
 };
 
+// 列表选择模式枚举
+enum class ListSelectionMode {
+    None,       // 不可选择
+    Single,     // 单选
+    Multiple    // 多选
+};
+
 // 边框样式枚举
 enum class BorderStyle {
     Solid,

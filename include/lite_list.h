@@ -13,15 +13,6 @@ class LiteList;
 using LiteListPtr = std::shared_ptr<LiteList>;
 
 /**
- * 列表选择模式枚举
- */
-enum class ListSelectionMode {
-    None,       // 不可选择
-    Single,     // 单选
-    Multiple    // 多选
-};
-
-/**
  * 列表项结构体
  */
 struct ListItem {
