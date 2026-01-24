@@ -1,0 +1,7 @@
+CompileFlags:
+  CompilationDatabase: build
+  Add:
+    - "-std=c++17"
+    - "-I./include"
+    - "-I./third-party/skia/include"
+    - "-I./third-party/yoga/yoga"
