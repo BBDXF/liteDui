@@ -5,6 +5,7 @@
 #pragma once
 
 #include "lite_container.h"
+#include "lite_window.h"
 
 namespace liteDui {
 
@@ -27,6 +28,9 @@ class LiteDialog : public LiteContainer {
 public:
     LiteDialog();
     ~LiteDialog() override = default;
+    
+    void show(LiteWindow* window);
+    void close();
     
     void setTitle(const std::string& title);
     const std::string& getTitle() const { return m_title; }

@@ -154,7 +154,7 @@ public:
         progressBar_ = std::make_shared<LiteProgressBar>();
         progressBar_->setWidth(LayoutValue::Percent(100));
         progressBar_->setHeight(20);
-        progressBar_->setValue(0.65f);
+        progressBar_->setValue(65.0f);
         progressBar_->setShowText(true);
         content->addChild(progressBar_);
 
@@ -183,7 +183,7 @@ public:
 
         slider_->setOnValueChanged([this](float val) {
             valueLabel_->setText(std::to_string((int)val));
-            progressBar_->setValue(val / 100.0f);
+            progressBar_->setValue(val);
         });
 
         sliderRow->addChild(slider_);

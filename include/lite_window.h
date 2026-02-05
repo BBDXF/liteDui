@@ -92,6 +92,18 @@ public:
      */
     liteDui::LiteContainer* GetFocusedContainer() const { return focusedContainer_; }
 
+    // Overlay 管理
+    void pushOverlay(std::shared_ptr<liteDui::LiteContainer> overlay);
+    void popOverlay();
+    void removeOverlay(std::shared_ptr<liteDui::LiteContainer> overlay);
+    void clearOverlays();
+    bool hasOverlay() const { return !overlays_.empty(); }
+    std::shared_ptr<liteDui::LiteContainer> getTopOverlay() const;
+
+    // 窗口尺寸
+    int getWidth() const { return width_; }
+    int getHeight() const { return height_; }
+
 private:
     int width_;
     int height_;
@@ -101,6 +113,7 @@ private:
     std::unique_ptr<liteDui::LiteSkiaRenderer> skiaRenderer_; // Skia渲染器
     std::shared_ptr<liteDui::LiteContainer> rootContainer_; // 根容器
     liteDui::LiteContainer* focusedContainer_ = nullptr; // 当前焦点控件
+    std::vector<std::shared_ptr<liteDui::LiteContainer>> overlays_; // overlay 栈
 
     /**
      * @brief 获取平台特定的窗口ID

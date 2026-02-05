@@ -181,4 +181,24 @@ SkFont LiteContainer::getFont() const {
     return getFontManager().createFont(m_fontSize, m_fontFamily);
 }
 
+float LiteContainer::getAbsoluteLeft() const {
+    float x = getLeft();
+    auto parent = getParent();
+    while (parent) {
+        x += parent->getLeft();
+        parent = parent->getParent();
+    }
+    return x;
+}
+
+float LiteContainer::getAbsoluteTop() const {
+    float y = getTop();
+    auto parent = getParent();
+    while (parent) {
+        y += parent->getTop();
+        parent = parent->getParent();
+    }
+    return y;
+}
+
 } // namespace liteDui

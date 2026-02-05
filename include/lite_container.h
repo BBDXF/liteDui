@@ -14,6 +14,7 @@ namespace skia::textlayout {
 
 namespace liteDui {
 
+class LiteWindow;
 class LiteContainer;
 using LiteContainerPtr = std::shared_ptr<LiteContainer>;
 
@@ -66,6 +67,14 @@ public:
     virtual void onFocusGained() {}
     virtual void onFocusLost() {}
 
+    // Window 引用（用于 overlay 操作）
+    void setWindow(LiteWindow* window) { m_window = window; }
+    LiteWindow* getWindow() const { return m_window; }
+
+    // 获取绝对坐标（相对于窗口）
+    float getAbsoluteLeft() const;
+    float getAbsoluteTop() const;
+
 protected:
     void drawBackground(SkCanvas* canvas, float x, float y, float w, float h);
     void drawBorder(SkCanvas* canvas, float x, float y, float w, float h);
@@ -106,6 +115,9 @@ protected:
     float m_fontSize = 14.0f;
     std::string m_fontFamily = LITE_DEFAULT_FONT_FAMILY;
     TextAlign m_textAlign = TextAlign::Left;
+
+    // Window 引用
+    LiteWindow* m_window = nullptr;
 };
 
 } // namespace liteDui

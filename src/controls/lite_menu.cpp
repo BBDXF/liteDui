@@ -8,7 +8,147 @@
 
 namespace liteDui {
 
-// LiteMenu
+// ==================== MenuOverlay ====================
+
+MenuOverlay::MenuOverlay(LiteMenu* menu) : m_menu(menu) {
+    setBackgroundColor(Color::Transparent());
+}
+
+void MenuOverlay::render(SkCanvas* canvas) {
+    if (!m_menu || m_menu->m_items.empty()) return;
+    
+    float menuX = m_menu->m_menuX;
+    float menuY = m_menu->m_menuY;
+    float menuWidth = 180.0f;
+    float menuHeight = 0;
+    
+    for (auto* item : m_menu->m_items) {
+        menuHeight += (item->getType() == MenuItemType::Separator) ? 8.0f : m_menu->m_itemHeight;
+    }
+
+    // 背景
+    SkPaint bgPaint;
+    bgPaint.setColor(m_menu->m_bgColor.toARGB());
+    canvas->drawRect(SkRect::MakeXYWH(menuX, menuY, menuWidth, menuHeight), bgPaint);
+
+    // 边框
+    SkPaint borderPaint;
+    borderPaint.setStyle(SkPaint::kStroke_Style);
+    borderPaint.setColor(Color::fromRGB(200, 200, 200).toARGB());
+    canvas->drawRect(SkRect::MakeXYWH(menuX, menuY, menuWidth, menuHeight), borderPaint);
+
+    float y = menuY;
+    for (size_t i = 0; i < m_menu->m_items.size(); i++) {
+        auto* item = m_menu->m_items[i];
+        
+        if (item->getType() == MenuItemType::Separator) {
+            SkPaint sepPaint;
+            sepPaint.setColor(Color::fromRGB(220, 220, 220).toARGB());
+            canvas->drawLine(menuX + 8, y + 4, menuX + menuWidth - 8, y + 4, sepPaint);
+            y += 8.0f;
+            continue;
+        }
+
+        if (static_cast<int>(i) == m_hoverIndex && item->isEnabled()) {
+            SkPaint selPaint;
+            selPaint.setColor(m_menu->m_selectionColor.toARGB());
+            canvas->drawRect(SkRect::MakeXYWH(menuX, y, menuWidth, m_menu->m_itemHeight), selPaint);
+        }
+
+        setTextColor(item->isEnabled() ? Color::Black() : Color::Gray());
+        setText(item->getText());
+        drawText(canvas, menuX + 12, y, menuWidth - 24, m_menu->m_itemHeight);
+
+        if (!item->getShortcut().empty()) {
+            setText(item->getShortcut());
+            setTextColor(Color::Gray());
+            setTextAlign(TextAlign::Right);
+            drawText(canvas, menuX, y, menuWidth - 12, m_menu->m_itemHeight);
+            setTextAlign(TextAlign::Left);
+        }
+
+        if (item->getType() == MenuItemType::Checkable && item->isChecked()) {
+            SkPaint checkPaint;
+            checkPaint.setColor(Color::Black().toARGB());
+            checkPaint.setStrokeWidth(2);
+            checkPaint.setStyle(SkPaint::kStroke_Style);
+            float cx = menuX + 8, cy = y + m_menu->m_itemHeight / 2;
+            canvas->drawLine(cx - 3, cy, cx, cy + 3, checkPaint);
+            canvas->drawLine(cx, cy + 3, cx + 5, cy - 3, checkPaint);
+        }
+
+        if (item->getType() == MenuItemType::Submenu) {
+            SkPaint arrowPaint;
+            arrowPaint.setColor(Color::Gray().toARGB());
+            arrowPaint.setStyle(SkPaint::kStroke_Style);
+            arrowPaint.setStrokeWidth(1.5f);
+            float ax = menuX + menuWidth - 12, ay = y + m_menu->m_itemHeight / 2;
+            canvas->drawLine(ax - 3, ay - 4, ax + 2, ay, arrowPaint);
+            canvas->drawLine(ax + 2, ay, ax - 3, ay + 4, arrowPaint);
+        }
+
+        y += m_menu->m_itemHeight;
+    }
+}
+
+void MenuOverlay::onMousePressed(const MouseEvent& event) {
+    if (!m_menu) return;
+    
+    float menuX = m_menu->m_menuX;
+    float menuY = m_menu->m_menuY;
+    float menuWidth = 180.0f;
+    float menuHeight = 0;
+    
+    for (auto* item : m_menu->m_items) {
+        menuHeight += (item->getType() == MenuItemType::Separator) ? 8.0f : m_menu->m_itemHeight;
+    }
+    
+    // 检查是否点击在菜单区域内
+    if (event.x >= menuX && event.x < menuX + menuWidth &&
+        event.y >= menuY && event.y < menuY + menuHeight) {
+        if (m_hoverIndex >= 0 && m_hoverIndex < static_cast<int>(m_menu->m_items.size())) {
+            auto* item = m_menu->m_items[m_hoverIndex];
+            if (item->isEnabled() && item->getType() != MenuItemType::Separator) {
+                if (item->getType() == MenuItemType::Checkable) {
+                    item->setChecked(!item->isChecked());
+                }
+                item->triggerClick();
+            }
+        }
+    }
+    
+    // 关闭菜单
+    m_menu->hide();
+}
+
+void MenuOverlay::onMouseMoved(const MouseEvent& event) {
+    if (!m_menu) return;
+    
+    float menuX = m_menu->m_menuX;
+    float menuY = m_menu->m_menuY;
+    float menuWidth = 180.0f;
+    
+    int newHover = -1;
+    if (event.x >= menuX && event.x < menuX + menuWidth) {
+        float y = menuY;
+        for (size_t i = 0; i < m_menu->m_items.size(); i++) {
+            float itemH = (m_menu->m_items[i]->getType() == MenuItemType::Separator) ? 8.0f : m_menu->m_itemHeight;
+            if (event.y >= y && event.y < y + itemH) {
+                newHover = static_cast<int>(i);
+                break;
+            }
+            y += itemH;
+        }
+    }
+    
+    if (newHover != m_hoverIndex) {
+        m_hoverIndex = newHover;
+        markDirty();
+    }
+}
+
+// ==================== LiteMenu ====================
+
 LiteMenu::LiteMenu() {
     setBackgroundColor(m_bgColor);
     setBorderColor(Color::fromRGB(200, 200, 200));
@@ -54,12 +194,24 @@ void LiteMenu::show(float x, float y) {
     m_menuX = x;
     m_menuY = y;
     m_isShown = true;
+    
+    auto window = getWindow();
+    if (window) {
+        if (!m_overlay) {
+            m_overlay = std::make_shared<MenuOverlay>(this);
+        }
+        window->pushOverlay(m_overlay);
+    }
     markDirty();
 }
 
 void LiteMenu::hide() {
     m_isShown = false;
-    m_hoverIndex = -1;
+    
+    auto window = getWindow();
+    if (window && m_overlay) {
+        window->removeOverlay(m_overlay);
+    }
     markDirty();
 }
 
@@ -68,112 +220,19 @@ void LiteMenu::setBackgroundColor(const Color& color) { m_bgColor = color; LiteC
 void LiteMenu::setSelectionColor(const Color& color) { m_selectionColor = color; }
 
 void LiteMenu::render(SkCanvas* canvas) {
-    if (!m_isShown || m_items.empty()) return;
-
-    float menuWidth = 180.0f;
-    float menuHeight = 0;
-    for (auto* item : m_items) {
-        menuHeight += (item->getType() == MenuItemType::Separator) ? 8.0f : m_itemHeight;
-    }
-
-    // 背景
-    SkPaint bgPaint;
-    bgPaint.setColor(m_bgColor.toARGB());
-    canvas->drawRect(SkRect::MakeXYWH(m_menuX, m_menuY, menuWidth, menuHeight), bgPaint);
-
-    // 边框
-    SkPaint borderPaint;
-    borderPaint.setStyle(SkPaint::kStroke_Style);
-    borderPaint.setColor(Color::fromRGB(200, 200, 200).toARGB());
-    canvas->drawRect(SkRect::MakeXYWH(m_menuX, m_menuY, menuWidth, menuHeight), borderPaint);
-
-    float y = m_menuY;
-    for (size_t i = 0; i < m_items.size(); i++) {
-        auto* item = m_items[i];
-        
-        if (item->getType() == MenuItemType::Separator) {
-            SkPaint sepPaint;
-            sepPaint.setColor(Color::fromRGB(220, 220, 220).toARGB());
-            canvas->drawLine(m_menuX + 8, y + 4, m_menuX + menuWidth - 8, y + 4, sepPaint);
-            y += 8.0f;
-            continue;
-        }
-
-        if (static_cast<int>(i) == m_hoverIndex && item->isEnabled()) {
-            SkPaint selPaint;
-            selPaint.setColor(m_selectionColor.toARGB());
-            canvas->drawRect(SkRect::MakeXYWH(m_menuX, y, menuWidth, m_itemHeight), selPaint);
-        }
-
-        setTextColor(item->isEnabled() ? Color::Black() : Color::Gray());
-        setText(item->getText());
-        drawText(canvas, m_menuX + 12 - getLeft(), y - getTop(), menuWidth - 24, m_itemHeight);
-
-        if (!item->getShortcut().empty()) {
-            setText(item->getShortcut());
-            setTextColor(Color::Gray());
-            setTextAlign(TextAlign::Right);
-            drawText(canvas, m_menuX - getLeft(), y - getTop(), menuWidth - 12, m_itemHeight);
-            setTextAlign(TextAlign::Left);
-        }
-
-        if (item->getType() == MenuItemType::Checkable && item->isChecked()) {
-            SkPaint checkPaint;
-            checkPaint.setColor(Color::Black().toARGB());
-            checkPaint.setStrokeWidth(2);
-            checkPaint.setStyle(SkPaint::kStroke_Style);
-            float cx = m_menuX + 8, cy = y + m_itemHeight / 2;
-            canvas->drawLine(cx - 3, cy, cx, cy + 3, checkPaint);
-            canvas->drawLine(cx, cy + 3, cx + 5, cy - 3, checkPaint);
-        }
-
-        if (item->getType() == MenuItemType::Submenu) {
-            SkPaint arrowPaint;
-            arrowPaint.setColor(Color::Gray().toARGB());
-            arrowPaint.setStyle(SkPaint::kStroke_Style);
-            arrowPaint.setStrokeWidth(1.5f);
-            float ax = m_menuX + menuWidth - 12, ay = y + m_itemHeight / 2;
-            canvas->drawLine(ax - 3, ay - 4, ax + 2, ay, arrowPaint);
-            canvas->drawLine(ax + 2, ay, ax - 3, ay + 4, arrowPaint);
-        }
-
-        y += m_itemHeight;
-    }
+    // 菜单内容由 overlay 渲染，这里不需要做任何事
 }
 
 void LiteMenu::onMousePressed(const MouseEvent& event) {
-    if (m_hoverIndex >= 0 && m_hoverIndex < static_cast<int>(m_items.size())) {
-        auto* item = m_items[m_hoverIndex];
-        if (item->isEnabled() && item->getType() != MenuItemType::Separator) {
-            if (item->getType() == MenuItemType::Checkable) {
-                item->setChecked(!item->isChecked());
-            }
-            item->triggerClick();
-            hide();
-        }
-    }
+    // 事件由 overlay 处理
 }
 
 void LiteMenu::onMouseMoved(const MouseEvent& event) {
-    if (!m_isShown) return;
-    
-    float y = m_menuY;
-    int newHover = -1;
-    for (size_t i = 0; i < m_items.size(); i++) {
-        float itemH = (m_items[i]->getType() == MenuItemType::Separator) ? 8.0f : m_itemHeight;
-        if (event.y >= y && event.y < y + itemH) {
-            newHover = static_cast<int>(i);
-            break;
-        }
-        y += itemH;
-    }
-    if (newHover != m_hoverIndex) {
-        m_hoverIndex = newHover;
-        markDirty();
-    }
+    // 事件由 overlay 处理
 }
 
-// LiteMenuBar
+// ==================== LiteMenuBar ====================
+
 LiteMenuBar::LiteMenuBar() {
     setBackgroundColor(Color::fromRGB(245, 245, 245));
     setHeight(28.0f);
@@ -213,7 +272,6 @@ void LiteMenuBar::render(SkCanvas* canvas) {
         auto& info = m_menus[i];
         info.x = menuX;
         
-        // 测量文本宽度
         SkFont font = getFont();
         float textWidth = font.measureText(info.title.c_str(), info.title.size(), SkTextEncoding::kUTF8);
         info.width = textWidth + 16;
@@ -230,59 +288,40 @@ void LiteMenuBar::render(SkCanvas* canvas) {
 
         menuX += info.width;
     }
-
-    // 渲染活动菜单
-    if (m_activeIndex >= 0 && m_activeIndex < static_cast<int>(m_menus.size())) {
-        auto& info = m_menus[m_activeIndex];
-        if (info.menu) {
-            info.menu->render(canvas);
-        }
-    }
 }
 
 void LiteMenuBar::onMousePressed(const MouseEvent& event) {
     float h = getLayoutHeight();
-    float localY = event.y - getTop();
     
-    if (localY >= 0 && localY < h) {
+    if (event.y >= 0 && event.y < h) {
         for (size_t i = 0; i < m_menus.size(); i++) {
             auto& info = m_menus[i];
-            float localX = event.x - getLeft();
-            if (localX >= info.x && localX < info.x + info.width) {
+            if (event.x >= info.x && event.x < info.x + info.width) {
                 if (m_activeIndex == static_cast<int>(i)) {
                     m_menus[m_activeIndex].menu->hide();
                     m_activeIndex = -1;
                 } else {
                     if (m_activeIndex >= 0) m_menus[m_activeIndex].menu->hide();
                     m_activeIndex = static_cast<int>(i);
-                    info.menu->show(getLeft() + info.x, getTop() + h);
+                    // 使用绝对坐标
+                    info.menu->setWindow(getWindow());
+                    info.menu->show(getAbsoluteLeft() + info.x, getAbsoluteTop() + h);
                 }
                 markDirty();
                 return;
             }
         }
     }
-    
-    // 点击菜单项
-    if (m_activeIndex >= 0) {
-        m_menus[m_activeIndex].menu->onMousePressed(event);
-        if (!m_menus[m_activeIndex].menu->isShown()) {
-            m_activeIndex = -1;
-        }
-        markDirty();
-    }
 }
 
 void LiteMenuBar::onMouseMoved(const MouseEvent& event) {
     float h = getLayoutHeight();
-    float localY = event.y - getTop();
     
     int newHover = -1;
-    if (localY >= 0 && localY < h) {
+    if (event.y >= 0 && event.y < h) {
         for (size_t i = 0; i < m_menus.size(); i++) {
             auto& info = m_menus[i];
-            float localX = event.x - getLeft();
-            if (localX >= info.x && localX < info.x + info.width) {
+            if (event.x >= info.x && event.x < info.x + info.width) {
                 newHover = static_cast<int>(i);
                 break;
             }
@@ -294,13 +333,11 @@ void LiteMenuBar::onMouseMoved(const MouseEvent& event) {
         if (m_activeIndex >= 0 && newHover >= 0 && newHover != m_activeIndex) {
             m_menus[m_activeIndex].menu->hide();
             m_activeIndex = newHover;
-            m_menus[m_activeIndex].menu->show(getLeft() + m_menus[m_activeIndex].x, getTop() + h);
+            auto& info = m_menus[m_activeIndex];
+            info.menu->setWindow(getWindow());
+            info.menu->show(getAbsoluteLeft() + info.x, getAbsoluteTop() + h);
         }
         markDirty();
-    }
-    
-    if (m_activeIndex >= 0) {
-        m_menus[m_activeIndex].menu->onMouseMoved(event);
     }
 }
 

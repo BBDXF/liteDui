@@ -5,9 +5,110 @@
 #include "lite_combo_box.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkRRect.h"
-#include "include/core/SkPath.h"
 
 namespace liteDui {
+
+// ==================== ComboDropdownOverlay ====================
+
+ComboDropdownOverlay::ComboDropdownOverlay(LiteComboBox* comboBox) 
+    : m_comboBox(comboBox) {
+    setBackgroundColor(Color::Transparent());
+}
+
+void ComboDropdownOverlay::render(SkCanvas* canvas) {
+    if (!m_comboBox || m_comboBox->m_items.empty()) return;
+    
+    float comboX = m_comboBox->getAbsoluteLeft();
+    float comboY = m_comboBox->getAbsoluteTop();
+    float comboW = m_comboBox->getLayoutWidth();
+    float comboH = m_comboBox->getLayoutHeight();
+    
+    float itemHeight = 28.0f;
+    int visibleCount = std::min(static_cast<int>(m_comboBox->m_items.size()), m_comboBox->m_maxVisibleItems);
+    float dropdownH = visibleCount * itemHeight;
+    float dropdownY = comboY + comboH;
+    
+    // 绘制下拉列表背景
+    SkPaint bgPaint;
+    bgPaint.setAntiAlias(true);
+    bgPaint.setColor(m_comboBox->m_dropdownColor.toARGB());
+    canvas->drawRect(SkRect::MakeXYWH(comboX, dropdownY, comboW, dropdownH), bgPaint);
+    
+    // 边框
+    SkPaint borderPaint;
+    borderPaint.setAntiAlias(true);
+    borderPaint.setStyle(SkPaint::kStroke_Style);
+    borderPaint.setColor(Color::fromRGB(200, 200, 200).toARGB());
+    canvas->drawRect(SkRect::MakeXYWH(comboX, dropdownY, comboW, dropdownH), borderPaint);
+    
+    // 绘制选项
+    for (int i = 0; i < visibleCount; i++) {
+        float itemY = dropdownY + i * itemHeight;
+        
+        if (i == m_hoverIndex) {
+            SkPaint hoverPaint;
+            hoverPaint.setColor(m_comboBox->m_hoverColor.toARGB());
+            canvas->drawRect(SkRect::MakeXYWH(comboX, itemY, comboW, itemHeight), hoverPaint);
+        }
+        
+        setText(m_comboBox->m_items[i].text);
+        setTextColor(Color::Black());
+        drawText(canvas, comboX + 8, itemY, comboW - 16, itemHeight);
+    }
+}
+
+void ComboDropdownOverlay::onMousePressed(const MouseEvent& event) {
+    if (!m_comboBox) return;
+    
+    float comboX = m_comboBox->getAbsoluteLeft();
+    float comboY = m_comboBox->getAbsoluteTop();
+    float comboW = m_comboBox->getLayoutWidth();
+    float comboH = m_comboBox->getLayoutHeight();
+    
+    float itemHeight = 28.0f;
+    int visibleCount = std::min(static_cast<int>(m_comboBox->m_items.size()), m_comboBox->m_maxVisibleItems);
+    float dropdownY = comboY + comboH;
+    float dropdownH = visibleCount * itemHeight;
+    
+    // 检查是否点击在下拉列表区域
+    if (event.x >= comboX && event.x < comboX + comboW &&
+        event.y >= dropdownY && event.y < dropdownY + dropdownH) {
+        int clickedIndex = static_cast<int>((event.y - dropdownY) / itemHeight);
+        if (clickedIndex >= 0 && clickedIndex < static_cast<int>(m_comboBox->m_items.size())) {
+            m_comboBox->setSelectedIndex(clickedIndex);
+        }
+    }
+    
+    // 关闭下拉列表
+    m_comboBox->hideDropdown();
+}
+
+void ComboDropdownOverlay::onMouseMoved(const MouseEvent& event) {
+    if (!m_comboBox) return;
+    
+    float comboX = m_comboBox->getAbsoluteLeft();
+    float comboY = m_comboBox->getAbsoluteTop();
+    float comboW = m_comboBox->getLayoutWidth();
+    float comboH = m_comboBox->getLayoutHeight();
+    
+    float itemHeight = 28.0f;
+    float dropdownY = comboY + comboH;
+    
+    int newHover = -1;
+    if (event.x >= comboX && event.x < comboX + comboW && event.y >= dropdownY) {
+        newHover = static_cast<int>((event.y - dropdownY) / itemHeight);
+        if (newHover >= static_cast<int>(m_comboBox->m_items.size())) {
+            newHover = -1;
+        }
+    }
+    
+    if (newHover != m_hoverIndex) {
+        m_hoverIndex = newHover;
+        markDirty();
+    }
+}
+
+// ==================== LiteComboBox ====================
 
 LiteComboBox::LiteComboBox() {
     setBackgroundColor(Color::White());
@@ -91,93 +192,36 @@ void LiteComboBox::render(SkCanvas* canvas) {
     float arrowY = h / 2;
     canvas->drawLine(arrowX - 4, arrowY - 2, arrowX, arrowY + 2, arrowPaint);
     canvas->drawLine(arrowX, arrowY + 2, arrowX + 4, arrowY - 2, arrowPaint);
-
-    // 绘制下拉列表
-    if (m_isPopupShown && !m_items.empty()) {
-        float itemHeight = 28.0f;
-        int visibleCount = std::min(static_cast<int>(m_items.size()), m_maxVisibleItems);
-        float dropdownHeight = visibleCount * itemHeight;
-
-        SkPaint bgPaint;
-        bgPaint.setAntiAlias(true);
-        bgPaint.setColor(m_dropdownColor.toARGB());
-        canvas->drawRect(SkRect::MakeXYWH(0, h, w, dropdownHeight), bgPaint);
-
-        // 边框
-        SkPaint borderPaint;
-        borderPaint.setAntiAlias(true);
-        borderPaint.setStyle(SkPaint::kStroke_Style);
-        borderPaint.setColor(Color::fromRGB(200, 200, 200).toARGB());
-        canvas->drawRect(SkRect::MakeXYWH(0, h, w, dropdownHeight), borderPaint);
-
-        for (int i = 0; i < visibleCount; i++) {
-            float itemY = h + i * itemHeight;
-            
-            if (i == m_hoverIndex) {
-                SkPaint hoverPaint;
-                hoverPaint.setColor(m_hoverColor.toARGB());
-                canvas->drawRect(SkRect::MakeXYWH(0, itemY, w, itemHeight), hoverPaint);
-            }
-
-            setText(m_items[i].text);
-            setTextColor(Color::Black());
-            drawText(canvas, 8, itemY, w - 16, itemHeight);
-        }
-    }
-
-    LiteContainer::render(canvas);
 }
 
 void LiteComboBox::onMousePressed(const MouseEvent& event) {
-    float w = getLayoutWidth();
-    float h = getLayoutHeight();
-
-    // 转换为本地坐标
-    float localX = event.x - getLeft();
-    float localY = event.y - getTop();
-
     if (m_isPopupShown) {
-        float itemHeight = 28.0f;
-        int visibleCount = std::min(static_cast<int>(m_items.size()), m_maxVisibleItems);
-        
-        if (localY > h && localY < h + visibleCount * itemHeight) {
-            int clickedIndex = static_cast<int>((localY - h) / itemHeight);
-            if (clickedIndex >= 0 && clickedIndex < static_cast<int>(m_items.size())) {
-                setSelectedIndex(clickedIndex);
-            }
-        }
-        m_isPopupShown = false;
+        hideDropdown();
     } else {
-        m_isPopupShown = true;
+        showDropdown();
     }
+}
+
+void LiteComboBox::showDropdown() {
+    auto window = getWindow();
+    if (!window) return;
+    
+    if (!m_dropdownOverlay) {
+        m_dropdownOverlay = std::make_shared<ComboDropdownOverlay>(this);
+    }
+    
+    window->pushOverlay(m_dropdownOverlay);
+    m_isPopupShown = true;
     markDirty();
 }
 
-void LiteComboBox::onMouseMoved(const MouseEvent& event) {
-    if (m_isPopupShown) {
-        float h = getLayoutHeight();
-        float itemHeight = 28.0f;
-        
-        // 转换为本地坐标
-        float localY = event.y - getTop();
-        
-        if (localY > h) {
-            int hoverIdx = static_cast<int>((localY - h) / itemHeight);
-            if (hoverIdx != m_hoverIndex && hoverIdx < static_cast<int>(m_items.size())) {
-                m_hoverIndex = hoverIdx;
-                markDirty();
-            }
-        } else {
-            m_hoverIndex = -1;
-        }
+void LiteComboBox::hideDropdown() {
+    auto window = getWindow();
+    if (window && m_dropdownOverlay) {
+        window->removeOverlay(m_dropdownOverlay);
     }
-}
-
-void LiteComboBox::onFocusLost() {
-    if (m_isPopupShown) {
-        m_isPopupShown = false;
-        markDirty();
-    }
+    m_isPopupShown = false;
+    markDirty();
 }
 
 } // namespace liteDui

@@ -21,14 +21,27 @@ void LiteDialog::setStandardButtons(int buttons) { m_standardButtons = buttons; 
 void LiteDialog::setOnAccepted(std::function<void()> callback) { m_onAccepted = callback; }
 void LiteDialog::setOnRejected(std::function<void()> callback) { m_onRejected = callback; }
 
+void LiteDialog::show(LiteWindow* window) {
+    if (!window) return;
+    window->pushOverlay(std::dynamic_pointer_cast<LiteContainer>(shared_from_this()));
+}
+
+void LiteDialog::close() {
+    if (m_window) {
+        m_window->removeOverlay(std::dynamic_pointer_cast<LiteContainer>(shared_from_this()));
+    }
+}
+
 void LiteDialog::accept() {
     m_result = DialogCode::Accepted;
     if (m_onAccepted) m_onAccepted();
+    close();
 }
 
 void LiteDialog::reject() {
     m_result = DialogCode::Rejected;
     if (m_onRejected) m_onRejected();
+    close();
 }
 
 void LiteDialog::render(SkCanvas* canvas) {

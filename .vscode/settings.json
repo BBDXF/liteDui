@@ -7,6 +7,9 @@
         "--header-insertion=never",
         "--background-index"
     ],
+    "clangd.fallbackFlags": [
+        "-I${workspaceFolder}/include"
+    ],
     "files.associations": {
         "*.h": "cpp",
         "*.cpp": "cpp"

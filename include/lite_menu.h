@@ -5,12 +5,14 @@
 #pragma once
 
 #include "lite_container.h"
+#include "lite_window.h"
 
 namespace liteDui {
 
 class LiteMenu;
 class LiteMenuBar;
 class LiteMenuItem;
+class MenuOverlay;
 using LiteMenuPtr = std::shared_ptr<LiteMenu>;
 using LiteMenuBarPtr = std::shared_ptr<LiteMenuBar>;
 
@@ -46,9 +48,24 @@ private:
     LiteMenu* m_submenu = nullptr;
     std::function<void()> m_onClick;
     friend class LiteMenu;
+    friend class MenuOverlay;
+};
+
+// Menu Overlay
+class MenuOverlay : public LiteContainer {
+public:
+    MenuOverlay(LiteMenu* menu);
+    void render(SkCanvas* canvas) override;
+    void onMousePressed(const MouseEvent& event) override;
+    void onMouseMoved(const MouseEvent& event) override;
+    
+private:
+    LiteMenu* m_menu;
+    int m_hoverIndex = -1;
 };
 
 class LiteMenu : public LiteContainer {
+    friend class MenuOverlay;
 public:
     LiteMenu();
     ~LiteMenu() override;
@@ -76,11 +93,11 @@ public:
 private:
     std::vector<LiteMenuItem*> m_items;
     bool m_isShown = false;
-    int m_hoverIndex = -1;
     float m_itemHeight = 28.0f;
     float m_menuX = 0, m_menuY = 0;
     Color m_bgColor = Color::White();
     Color m_selectionColor = Color::fromRGB(66, 133, 244, 80);
+    std::shared_ptr<MenuOverlay> m_overlay;
 };
 
 class LiteMenuBar : public LiteContainer {

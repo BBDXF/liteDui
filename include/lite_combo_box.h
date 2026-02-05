@@ -5,6 +5,7 @@
 #pragma once
 
 #include "lite_container.h"
+#include "lite_window.h"
 
 namespace liteDui {
 
@@ -13,7 +14,21 @@ using LiteComboBoxPtr = std::shared_ptr<LiteComboBox>;
 
 enum class ComboBoxMode { ReadOnly, Editable };
 
+// 下拉列表 Overlay
+class ComboDropdownOverlay : public LiteContainer {
+public:
+    ComboDropdownOverlay(LiteComboBox* comboBox);
+    void render(SkCanvas* canvas) override;
+    void onMousePressed(const MouseEvent& event) override;
+    void onMouseMoved(const MouseEvent& event) override;
+    
+private:
+    LiteComboBox* m_comboBox;
+    int m_hoverIndex = -1;
+};
+
 class LiteComboBox : public LiteContainer {
+    friend class ComboDropdownOverlay;
 public:
     LiteComboBox();
     ~LiteComboBox() override = default;
@@ -38,8 +53,9 @@ public:
     
     void render(SkCanvas* canvas) override;
     void onMousePressed(const MouseEvent& event) override;
-    void onMouseMoved(const MouseEvent& event) override;
-    void onFocusLost() override;
+    
+    void showDropdown();
+    void hideDropdown();
 
 private:
     struct ComboItem { std::string text; std::string data; };
@@ -49,10 +65,10 @@ private:
     std::string m_placeholder;
     int m_maxVisibleItems = 8;
     bool m_isPopupShown = false;
-    int m_hoverIndex = -1;
     Color m_dropdownColor = Color::White();
     Color m_hoverColor = Color::fromRGB(230, 230, 230);
     std::function<void(int)> m_onSelectionChanged;
+    std::shared_ptr<ComboDropdownOverlay> m_dropdownOverlay;
 };
 
 } // namespace liteDui

@@ -52,11 +52,14 @@ float LiteScrollView::getContentWidth() const {
     for (size_t i = 0; i < getChildCount(); ++i) {
         auto child = getChildAt(i);
         if (child && child->getDisplay() != Display::None) {
+            // 子控件的布局宽度已经包含了 margin，所以直接使用布局宽度
+            // 但需要考虑子控件的 left 位置（由于 padding 等因素）
             float childRight = child->getLeft() + child->getLayoutWidth();
             maxWidth = std::max(maxWidth, childRight);
         }
     }
-    return maxWidth;
+    // 如果内容宽度小于视口宽度，使用视口宽度
+    return std::max(maxWidth, getViewportWidth());
 }
 
 float LiteScrollView::getContentHeight() const {
@@ -64,11 +67,14 @@ float LiteScrollView::getContentHeight() const {
     for (size_t i = 0; i < getChildCount(); ++i) {
         auto child = getChildAt(i);
         if (child && child->getDisplay() != Display::None) {
+            // 子控件的布局高度已经包含了 margin，所以直接使用布局高度
+            // 但需要考虑子控件的 top 位置（由于 padding 等因素）
             float childBottom = child->getTop() + child->getLayoutHeight();
             maxHeight = std::max(maxHeight, childBottom);
         }
     }
-    return maxHeight;
+    // 如果内容高度小于视口高度，使用视口高度
+    return std::max(maxHeight, getViewportHeight());
 }
 
 float LiteScrollView::getViewportWidth() const {
@@ -158,7 +164,8 @@ void LiteScrollView::renderContent(SkCanvas* canvas) {
         if (child && child->getDisplay() != Display::None) {
             canvas->save();
             canvas->translate(child->getLeft(), child->getTop());
-            child->render(canvas);
+            // 使用 renderTree 而不是 render，以便正确渲染子控件的子控件
+            child->renderTree(canvas);
             canvas->restore();
         }
     }

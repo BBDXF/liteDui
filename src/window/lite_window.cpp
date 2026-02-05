@@ -92,9 +92,17 @@ void LiteWindow::Render()
     {
         // 先执行更新逻辑（如光标闪烁），这可能会触发 markDirty
         rootContainer_->updateTree();
+        for (auto& overlay : overlays_) {
+            overlay->updateTree();
+        }
         
-        // 只有在脏状态时才重新渲染
-        if (rootContainer_->isDirty())
+        // 检查是否需要重绘
+        bool needsRender = rootContainer_->isDirty();
+        for (auto& overlay : overlays_) {
+            if (overlay->isDirty()) needsRender = true;
+        }
+        
+        if (needsRender)
         {
             // 重新计算布局
             rootContainer_->setWidth(liteDui::LayoutValue::Point(static_cast<float>(width_)));
@@ -106,12 +114,25 @@ void LiteWindow::Render()
             SkCanvas *canvas = skiaRenderer_->getCanvas();
             if (canvas)
             {
+                // 1. 渲染主控件树
                 rootContainer_->renderTree(canvas);
+                
+                // 2. 渲染 overlay 层（按顺序，后面的在上层）
+                // overlay 使用绝对坐标绘制，需要重置变换矩阵
+                for (auto& overlay : overlays_) {
+                    canvas->save();
+                    canvas->resetMatrix();
+                    overlay->render(canvas);
+                    canvas->restore();
+                }
             }
             skiaRenderer_->end();
             
-            // 清除整棵树的脏标记
+            // 清除脏标记
             rootContainer_->clearDirtyTree();
+            for (auto& overlay : overlays_) {
+                overlay->clearDirtyTree();
+            }
         }
     }
 }
@@ -131,11 +152,25 @@ const char *LiteWindow::GetTitle() const
     return title_;
 }
 
+// 递归设置 window 引用
+static void setWindowRecursive(liteDui::LiteContainer* container, LiteWindow* window)
+{
+    if (!container) return;
+    container->setWindow(window);
+    for (size_t i = 0; i < container->getChildCount(); ++i) {
+        auto child = std::dynamic_pointer_cast<liteDui::LiteContainer>(container->getChildAt(i));
+        if (child) {
+            setWindowRecursive(child.get(), window);
+        }
+    }
+}
+
 void LiteWindow::SetRootContainer(std::shared_ptr<liteDui::LiteContainer> root)
 {
     rootContainer_ = root;
     focusedContainer_ = nullptr; // 重置焦点
     if (rootContainer_) {
+        setWindowRecursive(rootContainer_.get(), this);
         rootContainer_->markDirty();
     }
 }
@@ -161,6 +196,51 @@ void LiteWindow::SetFocusedContainer(liteDui::LiteContainer* container)
     if (focusedContainer_) {
         focusedContainer_->onFocusGained();
     }
+}
+
+// Overlay 管理实现
+void LiteWindow::pushOverlay(std::shared_ptr<liteDui::LiteContainer> overlay)
+{
+    if (!overlay) return;
+    overlay->setWindow(this);
+    overlay->setWidth(liteDui::LayoutValue::Point(static_cast<float>(width_)));
+    overlay->setHeight(liteDui::LayoutValue::Point(static_cast<float>(height_)));
+    overlay->calculateLayout(static_cast<float>(width_), static_cast<float>(height_));
+    overlays_.push_back(overlay);
+    overlay->markDirty();
+}
+
+void LiteWindow::popOverlay()
+{
+    if (!overlays_.empty()) {
+        overlays_.back()->setWindow(nullptr);
+        overlays_.pop_back();
+        if (rootContainer_) rootContainer_->markDirty();
+    }
+}
+
+void LiteWindow::removeOverlay(std::shared_ptr<liteDui::LiteContainer> overlay)
+{
+    auto it = std::find(overlays_.begin(), overlays_.end(), overlay);
+    if (it != overlays_.end()) {
+        (*it)->setWindow(nullptr);
+        overlays_.erase(it);
+        if (rootContainer_) rootContainer_->markDirty();
+    }
+}
+
+void LiteWindow::clearOverlays()
+{
+    for (auto& overlay : overlays_) {
+        overlay->setWindow(nullptr);
+    }
+    overlays_.clear();
+    if (rootContainer_) rootContainer_->markDirty();
+}
+
+std::shared_ptr<liteDui::LiteContainer> LiteWindow::getTopOverlay() const
+{
+    return overlays_.empty() ? nullptr : overlays_.back();
 }
 
 void *LiteWindow::getWindowId()
@@ -272,9 +352,20 @@ static void dispatchMouseEvent(LiteWindow *win, liteDui::LiteContainer *rootCont
 void LiteWindow::MousePosCallback(GLFWwindow *window, double xpos, double ypos)
 {
     auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
-    if (win && win->rootContainer_)
-    {
-        liteDui::MouseEvent event(static_cast<float>(xpos), static_cast<float>(ypos));
+    if (!win) return;
+    
+    liteDui::MouseEvent event(static_cast<float>(xpos), static_cast<float>(ypos));
+    
+    // 优先处理 overlay 层
+    if (win->hasOverlay()) {
+        auto topOverlay = win->getTopOverlay();
+        if (topOverlay) {
+            dispatchMouseEvent(win, topOverlay.get(), event, true);
+            return;
+        }
+    }
+    
+    if (win->rootContainer_) {
         dispatchMouseEvent(win, win->rootContainer_.get(), event, true);
     }
 }
@@ -282,13 +373,24 @@ void LiteWindow::MousePosCallback(GLFWwindow *window, double xpos, double ypos)
 void LiteWindow::MouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
 {
     auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
-    if (win && win->rootContainer_)
-    {
-        double xpos, ypos;
-        glfwGetCursorPos(window, &xpos, &ypos);
-        liteDui::MouseEvent event(static_cast<float>(xpos), static_cast<float>(ypos), static_cast<liteDui::MouseButton>(button));
-        event.pressed = (action == GLFW_PRESS);
-        event.released = (action == GLFW_RELEASE);
+    if (!win) return;
+    
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+    liteDui::MouseEvent event(static_cast<float>(xpos), static_cast<float>(ypos), static_cast<liteDui::MouseButton>(button));
+    event.pressed = (action == GLFW_PRESS);
+    event.released = (action == GLFW_RELEASE);
+    
+    // 优先处理 overlay 层
+    if (win->hasOverlay()) {
+        auto topOverlay = win->getTopOverlay();
+        if (topOverlay) {
+            dispatchMouseEvent(win, topOverlay.get(), event, false);
+            return;
+        }
+    }
+    
+    if (win->rootContainer_) {
         dispatchMouseEvent(win, win->rootContainer_.get(), event, false);
     }
 }
