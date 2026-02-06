@@ -124,8 +124,10 @@ public:
 
     // 重写渲染
     void render(SkCanvas* canvas) override;
+    void renderTree(SkCanvas* canvas) override;
 
-    // 重写获取内容高度
+    // 重写获取内容尺寸
+    float getContentWidth() const override;
     float getContentHeight() const override;
 
     // 事件处理

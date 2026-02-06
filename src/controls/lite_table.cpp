@@ -1,5 +1,7 @@
 /**
  * lite_table.cpp - 表格控件实现
+ * 
+ * 基于 LiteScrollView 实现，支持固定表头和双向滚动
  */
 
 #include "lite_table.h"
@@ -235,14 +237,11 @@ void LiteTable::setOnCellClicked(std::function<void(int, int)> callback) {
 
 // 辅助方法
 int LiteTable::getRowIndexAtY(float y) const {
-    if (m_rows.empty()) return -1;
+    if (m_rows.empty() || m_rowHeight <= 0) return -1;
     
-    float headerOffset = m_showHeader ? m_headerHeight : 0;
-    float adjustedY = y + m_scrollY - headerOffset;
+    // y 是相对于内容区域的坐标（已经考虑了滚动偏移）
+    int index = static_cast<int>(y / m_rowHeight);
     
-    if (adjustedY < 0) return -1;
-    
-    int index = static_cast<int>(adjustedY / m_rowHeight);
     if (index < 0 || index >= static_cast<int>(m_rows.size())) {
         return -1;
     }
@@ -252,11 +251,11 @@ int LiteTable::getRowIndexAtY(float y) const {
 int LiteTable::getColumnIndexAtX(float x) const {
     if (m_columns.empty()) return -1;
     
-    float adjustedX = x + m_scrollX;
+    // x 是相对于内容区域的坐标（已经考虑了滚动偏移）
     float currentX = 0;
     
     for (size_t i = 0; i < m_columns.size(); ++i) {
-        if (adjustedX >= currentX && adjustedX < currentX + m_columns[i].width) {
+        if (x >= currentX && x < currentX + m_columns[i].width) {
             return static_cast<int>(i);
         }
         currentX += m_columns[i].width;
@@ -272,57 +271,84 @@ float LiteTable::getTotalColumnWidth() const {
     return total;
 }
 
+float LiteTable::getContentWidth() const {
+    return getTotalColumnWidth();
+}
+
 float LiteTable::getContentHeight() const {
-    float headerOffset = m_showHeader ? m_headerHeight : 0;
-    return headerOffset + m_rows.size() * m_rowHeight;
+    // 内容高度 = 行数 × 行高（不包括表头，表头是固定的）
+    return m_rows.size() * m_rowHeight;
 }
 
 void LiteTable::render(SkCanvas* canvas) {
+    // 只绘制背景和边框
+    LiteScrollView::render(canvas);
+}
+
+void LiteTable::renderTree(SkCanvas* canvas) {
     if (!canvas) return;
 
-    float w = getLayoutWidth();
-    float h = getLayoutHeight();
-    if (w <= 0 || h <= 0) return;
+    // 保存 canvas 状态并平移到控件位置
+    canvas->save();
+    canvas->translate(getLeft(), getTop());
 
-    // 绘制背景和边框
-    drawBackground(canvas, 0, 0, w, h);
-    drawBorder(canvas, 0, 0, w, h);
+    // 渲染背景和边框
+    render(canvas);
 
+    // 计算内容区域的位置和尺寸
     float borderL = getLayoutBorderLeft();
     float borderT = getLayoutBorderTop();
+    float padL = getLayoutPaddingLeft();
+    float padT = getLayoutPaddingTop();
+
+    float contentX = borderL + padL;
+    float contentY = borderT + padT;
     float viewportW = getViewportWidth();
     float viewportH = getViewportHeight();
 
-    canvas->save();
-
-    // 裁剪到视口区域
-    SkRect clipRect = SkRect::MakeXYWH(borderL, borderT, viewportW, viewportH);
-    canvas->clipRect(clipRect);
-
-    // 绘制表头（固定在顶部）
+    // 如果显示表头，绘制固定表头
     if (m_showHeader) {
         canvas->save();
-        canvas->translate(borderL - m_scrollX, borderT);
+        
+        // 裁剪表头区域
+        SkRect headerClip = SkRect::MakeXYWH(contentX, contentY, viewportW, m_headerHeight);
+        canvas->clipRect(headerClip, SkClipOp::kIntersect, true);
+        
+        // 平移 canvas（只水平滚动，垂直不滚动）
+        canvas->translate(contentX - m_scrollX, contentY);
+        
+        // 绘制表头
         drawHeader(canvas);
+        
         canvas->restore();
+        
+        // 调整内容区域的起始位置
+        contentY += m_headerHeight;
+        viewportH -= m_headerHeight;
     }
 
-    // 绘制内容区域
-    float contentTop = borderT + (m_showHeader ? m_headerHeight : 0);
-    float contentHeight = viewportH - (m_showHeader ? m_headerHeight : 0);
-
+    // 绘制表格内容（可滚动区域）
     canvas->save();
-    canvas->clipRect(SkRect::MakeXYWH(borderL, contentTop, viewportW, contentHeight));
-    canvas->translate(borderL - m_scrollX, contentTop - m_scrollY);
+    
+    // 裁剪内容区域
+    SkRect contentClip = SkRect::MakeXYWH(contentX, contentY, viewportW, viewportH);
+    canvas->clipRect(contentClip, SkClipOp::kIntersect, true);
+    
+    // 平移 canvas 以实现滚动效果
+    canvas->translate(contentX - m_scrollX, contentY - m_scrollY);
+    
+    // 渲染内容
     renderContent(canvas);
+    
     canvas->restore();
 
-    canvas->restore();
-
-    // 绘制滚动条
+    // 绘制滚动条（在裁剪区域之外）
     if (m_showScrollbar) {
         drawScrollbar(canvas);
     }
+
+    // 恢复最外层 canvas 状态
+    canvas->restore();
 }
 
 void LiteTable::renderContent(SkCanvas* canvas) {
@@ -517,19 +543,41 @@ void LiteTable::onMousePressed(const MouseEvent& event) {
 
     if (event.button != MouseButton::Left) return;
 
+    // 计算点击位置相对于内容区域的坐标
+    float borderL = getLayoutBorderLeft();
     float borderT = getLayoutBorderTop();
-    float headerOffset = m_showHeader ? m_headerHeight : 0;
+    float padL = getLayoutPaddingLeft();
+    float padT = getLayoutPaddingTop();
+
+    float contentX = event.x - borderL - padL;
+    float contentY = event.y - borderT - padT;
 
     // 检查是否点击了表头
-    if (m_showHeader && event.y >= borderT && event.y < borderT + m_headerHeight) {
+    if (m_showHeader && contentY >= 0 && contentY < m_headerHeight) {
         // 表头点击，可以用于排序等功能
         return;
     }
 
-    // 检查是否点击了数据行
-    float contentY = event.y - borderT - headerOffset;
-    int rowIndex = getRowIndexAtY(contentY + headerOffset);
-    int colIndex = getColumnIndexAtX(event.x - getLayoutBorderLeft());
+    // 检查是否在视口范围内
+    if (contentX < 0 || contentX >= getViewportWidth()) {
+        return;
+    }
+
+    // 调整 contentY 以排除表头
+    if (m_showHeader) {
+        contentY -= m_headerHeight;
+    }
+
+    if (contentY < 0 || contentY >= (getViewportHeight() - (m_showHeader ? m_headerHeight : 0))) {
+        return;
+    }
+
+    // 加上滚动偏移，得到实际内容坐标
+    float actualY = contentY + m_scrollY;
+    float actualX = contentX + m_scrollX;
+    
+    int rowIndex = getRowIndexAtY(actualY);
+    int colIndex = getColumnIndexAtX(actualX);
 
     if (rowIndex >= 0 && rowIndex < static_cast<int>(m_rows.size())) {
         if (m_selectionMode == ListSelectionMode::Single) {
@@ -553,13 +601,36 @@ void LiteTable::onMousePressed(const MouseEvent& event) {
 }
 
 void LiteTable::onMouseMoved(const MouseEvent& event) {
+    // 先处理滚动条拖拽
     LiteScrollView::onMouseMoved(event);
 
+    // 计算鼠标位置相对于内容区域的坐标
     float borderT = getLayoutBorderTop();
-    float headerOffset = m_showHeader ? m_headerHeight : 0;
-    float contentY = event.y - borderT - headerOffset;
+    float borderL = getLayoutBorderLeft();
+    float padT = getLayoutPaddingTop();
+    float padL = getLayoutPaddingLeft();
 
-    int newHoverRow = getRowIndexAtY(contentY + headerOffset);
+    float contentX = event.x - borderL - padL;
+    float contentY = event.y - borderT - padT;
+
+    // 调整 contentY 以排除表头
+    if (m_showHeader) {
+        contentY -= m_headerHeight;
+    }
+
+    // 检查是否在视口范围内
+    if (contentX < 0 || contentX >= getViewportWidth() ||
+        contentY < 0 || contentY >= (getViewportHeight() - (m_showHeader ? m_headerHeight : 0))) {
+        if (m_hoverRow != -1) {
+            m_hoverRow = -1;
+            markDirty();
+        }
+        return;
+    }
+
+    // 加上滚动偏移，得到实际内容坐标
+    float actualY = contentY + m_scrollY;
+    int newHoverRow = getRowIndexAtY(actualY);
 
     if (newHoverRow != m_hoverRow) {
         m_hoverRow = newHoverRow;
