@@ -57,13 +57,14 @@ void MenuOverlay::render(SkCanvas* canvas) {
 
         setTextColor(item->isEnabled() ? Color::Black() : Color::Gray());
         setText(item->getText());
-        drawText(canvas, menuX + 12, y, menuWidth - 24, m_menu->m_itemHeight);
+        // 使用相对于 overlay 的坐标
+        drawText(canvas, menuX + 12 - getLeft(), y - getTop(), menuWidth - 24, m_menu->m_itemHeight);
 
         if (!item->getShortcut().empty()) {
             setText(item->getShortcut());
             setTextColor(Color::Gray());
             setTextAlign(TextAlign::Right);
-            drawText(canvas, menuX, y, menuWidth - 12, m_menu->m_itemHeight);
+            drawText(canvas, menuX - getLeft(), y - getTop(), menuWidth - 12, m_menu->m_itemHeight);
             setTextAlign(TextAlign::Left);
         }
 

@@ -95,7 +95,7 @@ void LiteDialog::drawTitleBar(SkCanvas* canvas, float x, float y, float w) {
         setText(m_title);
         setTextColor(Color::Black());
         setFontSize(16.0f);
-        drawText(canvas, x + 16 - getLeft(), y - getTop(), w - 32, TITLE_HEIGHT);
+        drawText(canvas, x + 16, y, w - 32, TITLE_HEIGHT);
         setFontSize(14.0f);
     }
 }
@@ -142,7 +142,7 @@ void LiteDialog::drawButtons(SkCanvas* canvas, float x, float y, float w) {
         setText(buttons[i].second);
         setTextColor(isPrimary ? Color::White() : Color::Black());
         setTextAlign(TextAlign::Center);
-        drawText(canvas, btnX - getLeft(), btnY - getTop(), btnWidth, btnHeight);
+        drawText(canvas, btnX, btnY, btnWidth, btnHeight);
         setTextAlign(TextAlign::Left);
     }
 }

@@ -77,7 +77,7 @@ void LiteMessageBox::render(SkCanvas* canvas) {
     if (!m_message.empty()) {
         setText(m_message);
         setTextColor(Color::Black());
-        drawText(canvas, textX - getLeft(), contentY - getTop(), m_dialogWidth - (textX - dlgX) - 24, contentH);
+        drawText(canvas, textX, contentY, m_dialogWidth - (textX - dlgX) - 24, contentH);
     }
 }
 
@@ -132,7 +132,7 @@ void LiteMessageBox::drawIcon(SkCanvas* canvas, float x, float y, float size) {
         setFontSize(24.0f);
         setTextColor(Color::White());
         setTextAlign(TextAlign::Center);
-        drawText(canvas, x - getLeft(), y - getTop() - 2, size, size);
+        drawText(canvas, x, y - 2, size, size);
         setFontSize(14.0f);
         setTextAlign(TextAlign::Left);
         break;
