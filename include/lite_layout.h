@@ -102,9 +102,10 @@ public:
     virtual void update() {}
     void updateTree();
 
-    // 渲染
+    // 渲染自身内容
     virtual void render(SkCanvas* canvas) {}
-    void renderTree(SkCanvas* canvas);
+    // 渲染总入口
+    virtual void renderTree(SkCanvas* canvas);
 
     Display getDisplay() const;
 

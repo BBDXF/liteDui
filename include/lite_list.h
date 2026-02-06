@@ -1,5 +1,7 @@
 /**
  * lite_list.h - 列表控件
+ * 
+ * 基于 LiteScrollView 实现的可滚动列表控件
  */
 
 #pragma once
@@ -29,7 +31,8 @@ struct ListItem {
 /**
  * LiteList - 列表控件
  * 
- * 基于 LiteScrollView 实现的可滚动列表，支持单选/多选
+ * 基于 LiteScrollView 实现的可滚动列表，支持单选/多选。
+ * 继承 LiteScrollView 的 canvas 裁剪和滚动功能，专注于列表项的渲染和交互。
  */
 class LiteList : public LiteScrollView {
 public:
@@ -57,7 +60,7 @@ public:
     void selectAll();
 
     // 样式设置
-    void setItemHeight(float height) { m_itemHeight = height; updateContentSize(); markDirty(); }
+    void setItemHeight(float height);
     float getItemHeight() const { return m_itemHeight; }
     
     void setItemPadding(float padding) { m_itemPadding = padding; markDirty(); }
@@ -80,24 +83,35 @@ public:
     void setOnItemClicked(std::function<void(int)> callback);
     void setOnItemDoubleClicked(std::function<void(int)> callback);
 
-    // 重写渲染
-    void render(SkCanvas* canvas) override;
-
     // 事件处理
     void onMousePressed(const MouseEvent& event) override;
     void onMouseMoved(const MouseEvent& event) override;
     void onMouseExited(const MouseEvent& event) override;
 
-    // 重写获取内容高度
-    float getContentHeight() const;
+    // 重写获取内容高度（列表的内容高度 = 项目数 × 项目高度）
+    float getContentHeight() const override;
 
 protected:
-    // 重写内容渲染
+    /**
+     * 重写内容渲染方法
+     * 在 LiteScrollView 已经设置好裁剪和滚动偏移的 canvas 上渲染列表项
+     */
     void renderContent(SkCanvas* canvas) override;
 
 private:
+    /**
+     * 根据 Y 坐标获取对应的列表项索引
+     * @param y 相对于内容区域的 Y 坐标（已考虑滚动偏移）
+     */
     int getItemIndexAtY(float y) const;
-    void updateContentSize();
+    
+    /**
+     * 绘制单个列表项
+     * @param canvas 画布
+     * @param index 项目索引
+     * @param y 项目的 Y 坐标
+     * @param width 项目宽度
+     */
     void drawItem(SkCanvas* canvas, size_t index, float y, float width);
 
     std::vector<ListItem> m_items;

@@ -1,5 +1,7 @@
 /**
  * lite_scroll_view.h - 可滚动区域控件
+ * 
+ * 使用 canvas 裁剪管理子控件的显示区域，支持垂直和水平滚动
  */
 
 #pragma once
@@ -23,7 +25,8 @@ enum class ScrollDirection {
 /**
  * LiteScrollView - 可滚动区域控件
  * 
- * 支持垂直和水平滚动，带有可选的滚动条显示
+ * 使用 canvas 裁剪技术管理子控件的显示区域，支持垂直和水平滚动。
+ * 通过 clipRect 限制子控件的渲染范围，实现滚动效果。
  */
 class LiteScrollView : public LiteContainer {
 public:
@@ -48,16 +51,17 @@ public:
     float getScrollX() const { return m_scrollX; }
     float getScrollY() const { return m_scrollY; }
 
-    // 获取内容尺寸（虚函数，子类可重写）
+    // 获取内容尺寸（虚函数，子类可重写以自定义内容大小计算）
     virtual float getContentWidth() const;
     virtual float getContentHeight() const;
 
-    // 获取视口尺寸
+    // 获取视口尺寸（可见区域大小）
     float getViewportWidth() const;
     float getViewportHeight() const;
 
-    // 重写渲染
+    // 重写渲染方法
     void render(SkCanvas* canvas) override;
+    void renderTree(SkCanvas* canvas) override;
 
     // 事件处理
     void onScroll(const ScrollEvent& event) override;
@@ -66,22 +70,37 @@ public:
     void onMouseMoved(const MouseEvent& event) override;
 
 protected:
-    // 子类可重写以自定义内容渲染
+    /**
+     * 渲染内容区域（子类可重写以自定义内容渲染）
+     * 此方法在 canvas 已经应用裁剪和滚动偏移后调用
+     */
     virtual void renderContent(SkCanvas* canvas);
     
-    // 限制滚动范围
+    /**
+     * 限制滚动范围，确保滚动位置在有效范围内
+     */
     void clampScroll();
+
+    /**
+     * 计算滚动条的可见性
+     */
+    bool needVerticalScrollbar() const;
+    bool needHorizontalScrollbar() const;
 
     // 滚动位置
     float m_scrollX = 0.0f;
     float m_scrollY = 0.0f;
 
-    // 滚动条辅助方法 - 子类可访问
+    // 滚动条绘制方法 - 子类可访问
     void drawScrollbar(SkCanvas* canvas);
     void drawVerticalScrollbar(SkCanvas* canvas, float x, float y, float w, float h);
     void drawHorizontalScrollbar(SkCanvas* canvas, float x, float y, float w, float h);
+    
+    // 滚动条交互检测
     bool isPointInVerticalScrollbar(float x, float y) const;
     bool isPointInHorizontalScrollbar(float x, float y) const;
+    SkRect getVerticalScrollbarThumbRect() const;
+    SkRect getHorizontalScrollbarThumbRect() const;
 
     // 滚动条属性 - 子类可访问
     ScrollDirection m_scrollDirection = ScrollDirection::Vertical;

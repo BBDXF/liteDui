@@ -308,18 +308,18 @@ void LiteLayout::updateTree() {
 // 渲染树
 void LiteLayout::renderTree(SkCanvas* canvas) {
     if (!canvas) return;
-    
+
     canvas->save();
     canvas->translate(getLeft(), getTop());
-    
+
     render(canvas);
-    
+
     for (const auto& child : m_children) {
         if (child->getDisplay() != Display::None) {
             child->renderTree(canvas);
         }
     }
-    
+
     canvas->restore();
 }
 

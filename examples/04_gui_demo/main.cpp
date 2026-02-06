@@ -233,6 +233,8 @@ public:
         list->addItem("Item 3 - Third entry");
         list->addItem("Item 4 - Fourth entry");
         list->addItem("Item 5 - Fifth entry");
+        list->addItem("Item 6 - ABC entry");
+        list->addItem("Item 7 - 123 entry");
         
         list->setOnItemClicked([](int idx) {
             std::cout << "List item clicked: " << idx << std::endl;
