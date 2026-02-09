@@ -198,6 +198,34 @@ void LiteWindow::SetFocusedContainer(liteDui::LiteContainer* container)
     }
 }
 
+// 全局鼠标追踪指针（用于 enter/exit 事件）
+static liteDui::LiteContainer *g_lastMouseInsideContainer = nullptr;
+
+// 辅助函数：判断 target 是否是 root 本身或其后代
+static bool isDescendantOfOrSelf(liteDui::LiteContainer *target, liteDui::LiteContainer *root)
+{
+    if (!target || !root) return false;
+    // 沿 parent 链向上查找
+    liteDui::LiteLayout *current = target;
+    while (current) {
+        if (current == root) return true;
+        auto parent = current->getParent();
+        current = parent.get();
+    }
+    return false;
+}
+
+// 清除指向即将被销毁的 overlay 子树的悬垂指针
+void LiteWindow::invalidatePointersForOverlay(liteDui::LiteContainer *overlayRoot)
+{
+    if (g_lastMouseInsideContainer && isDescendantOfOrSelf(g_lastMouseInsideContainer, overlayRoot)) {
+        g_lastMouseInsideContainer = nullptr;
+    }
+    if (focusedContainer_ && isDescendantOfOrSelf(focusedContainer_, overlayRoot)) {
+        focusedContainer_ = nullptr;
+    }
+}
+
 // Overlay 管理实现
 void LiteWindow::pushOverlay(std::shared_ptr<liteDui::LiteContainer> overlay)
 {
@@ -213,6 +241,7 @@ void LiteWindow::pushOverlay(std::shared_ptr<liteDui::LiteContainer> overlay)
 void LiteWindow::popOverlay()
 {
     if (!overlays_.empty()) {
+        invalidatePointersForOverlay(overlays_.back().get());
         overlays_.back()->setWindow(nullptr);
         overlays_.pop_back();
         if (rootContainer_) rootContainer_->markDirty();
@@ -223,6 +252,7 @@ void LiteWindow::removeOverlay(std::shared_ptr<liteDui::LiteContainer> overlay)
 {
     auto it = std::find(overlays_.begin(), overlays_.end(), overlay);
     if (it != overlays_.end()) {
+        invalidatePointersForOverlay((*it).get());
         (*it)->setWindow(nullptr);
         overlays_.erase(it);
         if (rootContainer_) rootContainer_->markDirty();
@@ -232,6 +262,7 @@ void LiteWindow::removeOverlay(std::shared_ptr<liteDui::LiteContainer> overlay)
 void LiteWindow::clearOverlays()
 {
     for (auto& overlay : overlays_) {
+        invalidatePointersForOverlay(overlay.get());
         overlay->setWindow(nullptr);
     }
     overlays_.clear();
@@ -283,7 +314,7 @@ void LiteWindow::WindowCloseCallback(GLFWwindow *window)
     glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-static liteDui::LiteContainer *g_lastMouseInsideContainer = nullptr;
+// g_lastMouseInsideContainer 已在前面声明
 
 static liteDui::LiteContainer *findDeepestContainerAtPosition(liteDui::LiteContainer *container, float x, float y, float &subx, float &suby)
 {

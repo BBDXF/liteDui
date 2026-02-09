@@ -97,6 +97,7 @@ public:
     void popOverlay();
     void removeOverlay(std::shared_ptr<liteDui::LiteContainer> overlay);
     void clearOverlays();
+    void invalidatePointersForOverlay(liteDui::LiteContainer* overlayRoot);
     bool hasOverlay() const { return !overlays_.empty(); }
     std::shared_ptr<liteDui::LiteContainer> getTopOverlay() const;
 

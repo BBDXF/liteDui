@@ -172,7 +172,7 @@ int LiteDialog::getButtonAtPosition(float px, float py, float x, float y, float 
     return -1;
 }
 
-void LiteDialog::onMousePressed(const MouseEvent& event) {
+void LiteDialog::onMouseReleased(const MouseEvent& event) {
     float w = getLayoutWidth();
     float h = getLayoutHeight();
     float dlgX = (w - m_dialogWidth) / 2;

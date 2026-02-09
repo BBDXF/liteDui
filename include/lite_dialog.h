@@ -48,7 +48,7 @@ public:
     void setOnRejected(std::function<void()> callback);
     
     void render(SkCanvas* canvas) override;
-    void onMousePressed(const MouseEvent& event) override;
+    void onMouseReleased(const MouseEvent& event) override;
     void onMouseMoved(const MouseEvent& event) override;
 
 protected:

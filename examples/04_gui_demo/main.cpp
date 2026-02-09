@@ -525,7 +525,7 @@ private:
             auto msgBox = LiteMessageBox::information("Info", "This is a LiteMessageBox!");
             msgBox->setWidth(LayoutValue::Percent(100));
             msgBox->setHeight(LayoutValue::Percent(100));
-            root_->addChild(msgBox);
+            msgBox->show(window_.get());
             statusLabel_->setText("MessageBox shown!");
         });
         btnArea->addChild(msgBoxBtn);
@@ -541,11 +541,9 @@ private:
             dialog->setTitle("LiteDialog Demo");
             dialog->setDialogSize(300, 150);
             dialog->setStandardButtons(Ok | Cancel);
-            dialog->setWidth(LayoutValue::Percent(100));
-            dialog->setHeight(LayoutValue::Percent(100));
             dialog->setOnAccepted([this]() { statusLabel_->setText("Dialog accepted!"); });
             dialog->setOnRejected([this]() { statusLabel_->setText("Dialog rejected!"); });
-            root_->addChild(dialog);
+            dialog->show(window_.get());
             statusLabel_->setText("Dialog shown!");
         });
         btnArea->addChild(dialogBtn);
@@ -565,7 +563,7 @@ private:
                 contextMenu_->addItem("Menu Item 3", [this]() { statusLabel_->setText("Menu Item 3 clicked!"); });
             }
             contextMenu_->show(e.x, e.y);
-            root_->addChild(contextMenu_);
+            // root_->addChild(contextMenu_);
             statusLabel_->setText("Menu shown!");
         });
         btnArea->addChild(menuBtn);
