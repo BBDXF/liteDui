@@ -10,7 +10,8 @@
 namespace liteDui {
 
 LiteDialog::LiteDialog() {
-    setBackgroundColor(Color::fromRGB(0, 0, 0, 128));
+    // 背景设为透明，模态遮罩在 render() 中单独绘制
+    setBackgroundColor(Color(0, 0, 0, 0));
 }
 
 void LiteDialog::setTitle(const std::string& title) { m_title = title; markDirty(); }
