@@ -94,7 +94,7 @@ public:
 private:
     std::vector<LiteMenuItem*> m_items;
     bool m_isShown = false;
-    float m_itemHeight = 28.0f;
+    float m_itemHeight = 24.0f;
     float m_menuX = 0, m_menuY = 0;
     Color m_bgColor = Color::White();
     Color m_selectionColor = Color::fromRGB(66, 133, 244, 80);

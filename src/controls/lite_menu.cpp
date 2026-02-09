@@ -57,8 +57,9 @@ void MenuOverlay::render(SkCanvas* canvas) {
 
         setTextColor(item->isEnabled() ? Color::Black() : Color::Gray());
         setText(item->getText());
-        // 使用相对于 overlay 的坐标
-        drawText(canvas, menuX + 12 - getLeft(), y - getTop(), menuWidth - 24, m_menu->m_itemHeight);
+        // 使用相对于 overlay 的坐标，左侧留出勾选图标区域
+        float textLeft = menuX + 28;
+        drawText(canvas, textLeft - getLeft(), y - getTop(), menuWidth - 28 - 12, m_menu->m_itemHeight);
 
         if (!item->getShortcut().empty()) {
             setText(item->getShortcut());
@@ -70,12 +71,13 @@ void MenuOverlay::render(SkCanvas* canvas) {
 
         if (item->getType() == MenuItemType::Checkable && item->isChecked()) {
             SkPaint checkPaint;
-            checkPaint.setColor(Color::Black().toARGB());
-            checkPaint.setStrokeWidth(2);
+            checkPaint.setColor(Color::fromRGB(66, 133, 244).toARGB());
+            checkPaint.setStrokeWidth(2.5f);
             checkPaint.setStyle(SkPaint::kStroke_Style);
-            float cx = menuX + 8, cy = y + m_menu->m_itemHeight / 2;
-            canvas->drawLine(cx - 3, cy, cx, cy + 3, checkPaint);
-            canvas->drawLine(cx, cy + 3, cx + 5, cy - 3, checkPaint);
+            checkPaint.setStrokeCap(SkPaint::kRound_Cap);
+            float cx = menuX + 14, cy = y + m_menu->m_itemHeight / 2;
+            canvas->drawLine(cx - 5, cy, cx - 1, cy + 5, checkPaint);
+            canvas->drawLine(cx - 1, cy + 5, cx + 7, cy - 5, checkPaint);
         }
 
         if (item->getType() == MenuItemType::Submenu) {
@@ -286,7 +288,7 @@ void LiteMenuBar::render(SkCanvas* canvas) {
         float textWidth = font.measureText(info.title.c_str(), info.title.size(), SkTextEncoding::kUTF8);
         info.width = textWidth + 16;
 
-        if (static_cast<int>(i) == m_hoverIndex || static_cast<int>(i) == m_activeIndex) {
+        if (static_cast<int>(i) == m_hoverIndex) {
             SkPaint hoverPaint;
             hoverPaint.setColor(Color::fromRGB(200, 200, 200).toARGB());
             canvas->drawRect(SkRect::MakeXYWH(menuX, 0, info.width, h), hoverPaint);
@@ -340,13 +342,6 @@ void LiteMenuBar::onMouseMoved(const MouseEvent& event) {
     
     if (newHover != m_hoverIndex) {
         m_hoverIndex = newHover;
-        if (m_activeIndex >= 0 && newHover >= 0 && newHover != m_activeIndex) {
-            m_menus[m_activeIndex].menu->hide();
-            m_activeIndex = newHover;
-            auto& info = m_menus[m_activeIndex];
-            info.menu->setWindow(getWindow());
-            info.menu->show(getAbsoluteLeft() + info.x, getAbsoluteTop() + h);
-        }
         markDirty();
     }
 }

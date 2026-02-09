@@ -435,9 +435,12 @@ private:
         root_->setWidth(LayoutValue::Percent(100));
         root_->setHeight(LayoutValue::Percent(100));
         root_->setBackgroundColor(Color::fromRGB(240, 240, 240));
-        root_->setPadding(EdgeInsets::All(15));
+        root_->setPadding(EdgeInsets(15, 0, 15, 15));
         root_->setFlexDirection(FlexDirection::Column);
         root_->setGap(12);
+
+        // MenuBar
+        root_->addChild(createMenuBar());
 
         // 标题
         auto title = std::make_shared<LiteLabel>("liteDui GUI Demo - All Controls");
@@ -593,6 +596,54 @@ private:
         statusLabel_->setBorderRadius(EdgeInsets::All(4));
         statusLabel_->setTextColor(Color::fromRGB(100, 100, 100));
         root_->addChild(statusLabel_);
+    }
+
+    LiteMenuBarPtr createMenuBar() {
+        auto menuBar = std::make_shared<LiteMenuBar>();
+        menuBar->setWidth(LayoutValue::Percent(100));
+
+        // File 菜单
+        auto* fileMenu = new LiteMenu();
+        fileMenu->addItem("New", [this]() { statusLabel_->setText("File > New"); });
+        fileMenu->addItem("Open", [this]() { statusLabel_->setText("File > Open"); });
+        fileMenu->addSeparator();
+        fileMenu->addItem("Exit", []() { exit(0); });
+        menuBar->addMenu("File", fileMenu);
+
+        // Edit 菜单
+        auto* editMenu = new LiteMenu();
+        editMenu->addItem("Undo", [this]() { statusLabel_->setText("Edit > Undo"); });
+        editMenu->addItem("Redo", [this]() { statusLabel_->setText("Edit > Redo"); });
+        editMenu->addSeparator();
+        editMenu->addItem("Cut", [this]() { statusLabel_->setText("Edit > Cut"); });
+        editMenu->addItem("Copy", [this]() { statusLabel_->setText("Edit > Copy"); });
+        editMenu->addItem("Paste", [this]() { statusLabel_->setText("Edit > Paste"); });
+        menuBar->addMenu("Edit", editMenu);
+
+        // View 菜单
+        auto* viewMenu = new LiteMenu();
+        auto* showToolbar = viewMenu->addItem("Show Toolbar");
+        showToolbar->setType(MenuItemType::Checkable);
+        showToolbar->setChecked(true);
+        showToolbar->setOnClick([this]() { statusLabel_->setText("View > Show Toolbar toggled"); });
+        auto* showStatusBar = viewMenu->addItem("Show StatusBar");
+        showStatusBar->setType(MenuItemType::Checkable);
+        showStatusBar->setChecked(true);
+        showStatusBar->setOnClick([this]() { statusLabel_->setText("View > Show StatusBar toggled"); });
+        menuBar->addMenu("View", viewMenu);
+
+        // Help 菜单
+        auto* helpMenu = new LiteMenu();
+        helpMenu->addItem("About", [this]() {
+            auto msgBox = LiteMessageBox::information("About", "liteDui GUI Framework v0.1");
+            msgBox->setWidth(LayoutValue::Percent(100));
+            msgBox->setHeight(LayoutValue::Percent(100));
+            msgBox->show(window_.get());
+            statusLabel_->setText("Help > About");
+        });
+        menuBar->addMenu("Help", helpMenu);
+
+        return menuBar;
     }
 };
 

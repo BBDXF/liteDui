@@ -36,6 +36,34 @@ Simple Direct User Interface Framework. 虽然叫lite GUI, 但是一点也不简
 - [Skia Builder](https://github.com/olilarkin/skia-builder)
 
 
+## 已实现控件
+
+| 分类 | 控件 | 说明 |
+|------|------|------|
+| 基础设施 | LiteLayout | Yoga Flexbox 布局基类 |
+| | LiteContainer | 容器基类，支持背景、边框、文本绘制 |
+| | LiteWindow | GLFW 窗口管理，Overlay 弹出层 |
+| | LiteFontManager | 全局字体管理器 (Skia Paragraph) |
+| | LiteSkiaRenderer | Skia OpenGL 渲染器 |
+| 基础控件 | LiteLabel | 文本标签，单行/多行/省略号模式 |
+| | LiteButton | 按钮，Normal/Hover/Pressed/Disabled 状态 |
+| | LiteInput | 输入框，Text/Password/Number 类型 |
+| | LiteCheckbox | 复选框 |
+| | LiteRadioButton | 单选按钮 + RadioGroup 分组 |
+| | LiteImage | 图片，None/Fit/Fill/Stretch 缩放模式 |
+| 高级控件 | LiteComboBox | 下拉组合框，ReadOnly/Editable 模式 |
+| | LiteSlider | 滑块，水平/垂直方向，刻度支持 |
+| | LiteProgressBar | 进度条，确定/不确定模式 |
+| | LiteScrollView | 可滚动容器，垂直/水平/双向滚动 |
+| | LiteList | 列表控件 (基于 ScrollView) |
+| | LiteTable | 表格控件 (基于 ScrollView) |
+| | LiteTreeView | 树形控件 (基于 ScrollView) |
+| | LiteTabView | 标签页，Top/Bottom 位置 |
+| | LiteGroupBox | 分组框 |
+| | LiteMenu / LiteMenuBar | 菜单系统，子菜单/快捷键/可勾选项 |
+| 弹出层 | LiteDialog | 模态对话框基类 |
+| | LiteMessageBox | 消息框，Information/Warning/Error/Question 图标 |
+
 ## 实施时间线
 
 ### 第一阶段 (4-6周)
@@ -48,8 +76,8 @@ Simple Direct User Interface Framework. 虽然叫lite GUI, 但是一点也不简
 ### 第二阶段 (4-6周)
 
 - [ ] CSS 样式系统
-- [ ] 事件处理系统完善
-- [ ] 高级组件实现 (ScrollView, Image 等)
+- [x] 事件处理系统完善
+- [x] 高级组件实现 (ScrollView, Image, Dialog, Menu, ComboBox, TabView, TreeView, Table, List, Slider, ProgressBar 等)
 - [ ] 性能优化
 
 ### 第三阶段 (3-4周)
