@@ -56,6 +56,11 @@ protected:
     void drawButtons(SkCanvas* canvas, float x, float y, float w);
     int getButtonAtPosition(float px, float py, float x, float y, float w) const;
     
+    /** 独立绘制文本，不修改父类 m_text 等成员 */
+    void drawStandaloneText(SkCanvas* canvas, const std::string& text,
+                            const Color& color, float fontSize, TextAlign align,
+                            float x, float y, float w, float h);
+    
     std::string m_title;
     bool m_isModal = true;
     float m_dialogWidth = 400.0f;

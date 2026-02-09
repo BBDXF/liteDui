@@ -73,11 +73,10 @@ void LiteMessageBox::render(SkCanvas* canvas) {
         textX = dlgX + 24 + iconSize + 16;
     }
 
-    // 消息文本
+    // 消息文本（使用独立绘制，不污染父类 m_text）
     if (!m_message.empty()) {
-        setText(m_message);
-        setTextColor(Color::Black());
-        drawText(canvas, textX, contentY, m_dialogWidth - (textX - dlgX) - 24, contentH);
+        drawStandaloneText(canvas, m_message, Color::Black(), m_fontSize, TextAlign::Left,
+                           textX, contentY, m_dialogWidth - (textX - dlgX) - 24, contentH);
     }
 }
 
@@ -128,13 +127,9 @@ void LiteMessageBox::drawIcon(SkCanvas* canvas, float x, float y, float size) {
     case MessageBoxIcon::Question:
         paint.setColor(Color::fromRGB(66, 133, 244).toARGB());
         canvas->drawCircle(cx, cy, r, paint);
-        setText("?");
-        setFontSize(24.0f);
-        setTextColor(Color::White());
-        setTextAlign(TextAlign::Center);
-        drawText(canvas, x, y - 2, size, size);
-        setFontSize(14.0f);
-        setTextAlign(TextAlign::Left);
+        // 使用独立绘制，不污染父类 m_text
+        drawStandaloneText(canvas, "?", Color::White(), 24.0f, TextAlign::Center,
+                           x, y - 2, size, size);
         break;
 
     default:

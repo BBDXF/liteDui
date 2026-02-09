@@ -192,16 +192,25 @@ void LiteMenu::clearItems() {
 }
 
 void LiteMenu::show(float x, float y) {
+    show(x, y, getWindow());
+}
+
+void LiteMenu::show(float x, float y, LiteWindow* window) {
     m_menuX = x;
     m_menuY = y;
     m_isShown = true;
     
-    auto window = getWindow();
-    if (window) {
+    // 如果传入了 window，更新内部引用
+    if (window && !getWindow()) {
+        setWindow(window);
+    }
+    
+    auto win = getWindow();
+    if (win) {
         if (!m_overlay) {
             m_overlay = std::make_shared<MenuOverlay>(this);
         }
-        window->pushOverlay(m_overlay);
+        win->pushOverlay(m_overlay);
     }
     markDirty();
 }

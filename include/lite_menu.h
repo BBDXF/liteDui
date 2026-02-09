@@ -79,6 +79,7 @@ public:
     LiteMenuItem* getItem(size_t index) const { return index < m_items.size() ? m_items[index] : nullptr; }
     
     void show(float x, float y);
+    void show(float x, float y, LiteWindow* window);
     void hide();
     bool isShown() const { return m_isShown; }
     

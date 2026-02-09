@@ -6,6 +6,9 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkRRect.h"
 #include "include/core/SkPath.h"
+#include "modules/skparagraph/include/ParagraphBuilder.h"
+
+using skia::textlayout::ParagraphBuilder;
 
 namespace liteDui {
 
@@ -80,6 +83,29 @@ void LiteDialog::render(SkCanvas* canvas) {
     LiteContainer::render(canvas);
 }
 
+void LiteDialog::drawStandaloneText(SkCanvas* canvas, const std::string& text,
+                                     const Color& color, float fontSize, TextAlign align,
+                                     float x, float y, float w, float h) {
+    if (text.empty() || w <= 0) return;
+
+    auto& fontMgr = getFontManager();
+    auto fontCollection = fontMgr.getFontCollection();
+    auto paraStyle = fontMgr.createParagraphStyle(align);
+    auto textStyle = fontMgr.createTextStyle(color, fontSize, m_fontFamily);
+
+    auto builder = ParagraphBuilder::make(paraStyle, fontCollection);
+    builder->pushStyle(textStyle);
+    builder->addText(text.c_str());
+
+    auto paragraph = builder->Build();
+    paragraph->layout(w);
+
+    // 垂直居中
+    float textHeight = paragraph->getHeight();
+    float textY = y + (h - textHeight) / 2;
+    paragraph->paint(canvas, x, textY);
+}
+
 void LiteDialog::drawTitleBar(SkCanvas* canvas, float x, float y, float w) {
     // 标题栏背景
     SkPaint titleBgPaint;
@@ -91,13 +117,10 @@ void LiteDialog::drawTitleBar(SkCanvas* canvas, float x, float y, float w) {
     canvas->drawRect(SkRect::MakeXYWH(x, y, w, TITLE_HEIGHT), titleBgPaint);
     canvas->restore();
 
-    // 标题文本
+    // 标题文本（使用独立绘制，不污染父类 m_text）
     if (!m_title.empty()) {
-        setText(m_title);
-        setTextColor(Color::Black());
-        setFontSize(16.0f);
-        drawText(canvas, x + 16, y, w - 32, TITLE_HEIGHT);
-        setFontSize(14.0f);
+        drawStandaloneText(canvas, m_title, Color::Black(), 16.0f, TextAlign::Left,
+                           x + 16, y, w - 32, TITLE_HEIGHT);
     }
 }
 
@@ -140,11 +163,10 @@ void LiteDialog::drawButtons(SkCanvas* canvas, float x, float y, float w) {
         borderPaint.setColor(isPrimary ? Color::fromRGB(66, 133, 244).toARGB() : Color::fromRGB(200, 200, 200).toARGB());
         canvas->drawRRect(SkRRect::MakeRectXY(SkRect::MakeXYWH(btnX, btnY, btnWidth, btnHeight), 4, 4), borderPaint);
 
-        setText(buttons[i].second);
-        setTextColor(isPrimary ? Color::White() : Color::Black());
-        setTextAlign(TextAlign::Center);
-        drawText(canvas, btnX, btnY, btnWidth, btnHeight);
-        setTextAlign(TextAlign::Left);
+        // 按钮文本（使用独立绘制，不污染父类 m_text）
+        Color textColor = isPrimary ? Color::White() : Color::Black();
+        drawStandaloneText(canvas, buttons[i].second, textColor, m_fontSize, TextAlign::Center,
+                           btnX, btnY, btnWidth, btnHeight);
     }
 }
 

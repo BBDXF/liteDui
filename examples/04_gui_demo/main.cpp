@@ -554,7 +554,7 @@ private:
         menuBtn->setHeight(36);
         menuBtn->setNormalBackgroundColor(Color::fromRGB(156, 39, 176));
         menuBtn->setNormalTextColor(Color::White());
-        menuBtn->setOnClick([this](const MouseEvent& e) {
+        menuBtn->setOnClick([this, menuBtn](const MouseEvent& e) {
             if (!contextMenu_) {
                 contextMenu_ = std::make_shared<LiteMenu>();
                 contextMenu_->addItem("Menu Item 1", [this]() { statusLabel_->setText("Menu Item 1 clicked!"); });
@@ -562,8 +562,10 @@ private:
                 contextMenu_->addSeparator();
                 contextMenu_->addItem("Menu Item 3", [this]() { statusLabel_->setText("Menu Item 3 clicked!"); });
             }
-            contextMenu_->show(e.x, e.y);
-            // root_->addChild(contextMenu_);
+            // 使用按钮的绝对坐标定位菜单，并传入 window 指针
+            float absX = menuBtn->getAbsoluteLeft() + e.x;
+            float absY = menuBtn->getAbsoluteTop() + e.y;
+            contextMenu_->show(absX, absY, window_.get());
             statusLabel_->setText("Menu shown!");
         });
         btnArea->addChild(menuBtn);
