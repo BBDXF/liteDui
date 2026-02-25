@@ -64,6 +64,8 @@ Simple Direct User Interface Framework. 虽然叫lite GUI, 但是一点也不简
 | 弹出层 | LiteDialog | 模态对话框基类 |
 | | LiteMessageBox | 消息框，Information/Warning/Error/Question 图标 |
 
+![demo04](demo04.gif)
+
 ## 实施时间线
 
 ### 第一阶段 (4-6周)
@@ -75,13 +77,20 @@ Simple Direct User Interface Framework. 虽然叫lite GUI, 但是一点也不简
 
 ### 第二阶段 (4-6周)
 
-- [ ] CSS 样式系统
+- [x] CSS 样式系统
 - [x] 事件处理系统完善
-- [x] 高级组件实现 (ScrollView, Image, Dialog, Menu, ComboBox, TabView, TreeView, Table, List, Slider, ProgressBar 等)
-- [ ] 性能优化
+- [x] 高级组件实现 (ScrollView, Image, Dialog, Menu, ComboBox, TabView, TreeView, Table, List, Slider, ProgressBar，tooltips 等)
+- [x] 性能优化
+- [ ] 文件/文件夹选择/保存，颜色选择，字体选择
+- [ ] SVG支持，图标/图片资源管理
+- [ ] Xml Form Builder
+- [ ] CSS Style Parser 
 
 ### 第三阶段 (3-4周)
 
+- [ ] Theme
+- [ ] C API
+- [ ] React Native API
 - [ ] QuickJS 集成 (可选)
 - [ ] 资源管理 (image/font/css)
 - [ ] 多平台支持扩展
