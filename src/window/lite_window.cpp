@@ -5,6 +5,7 @@
 #include "lite_window.h"
 #include "lite_skia_renderer.h"
 #include "lite_container.h"
+#include "lite_tooltip.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <thread>
@@ -22,6 +23,9 @@
 
 namespace liteDui
 {
+
+// 全局鼠标追踪指针（用于 enter/exit 事件和 tooltip）
+static liteDui::LiteContainer *g_lastMouseInsideContainer = nullptr;
 
 LiteWindow::LiteWindow(int width, int height, const char *title, LiteWindowManager *manager)
     : width_(width), height_(height), title_(title), manager_(manager), window_(nullptr)
@@ -96,6 +100,9 @@ void LiteWindow::Render()
             overlay->updateTree();
         }
         
+        // 更新 tooltip 计时（基于当前悬停控件）
+        updateTooltip(g_lastMouseInsideContainer);
+        
         // 检查是否需要重绘
         bool needsRender = rootContainer_->isDirty();
         for (auto& overlay : overlays_) {
@@ -123,6 +130,14 @@ void LiteWindow::Render()
                     canvas->save();
                     canvas->resetMatrix();
                     overlay->render(canvas);
+                    canvas->restore();
+                }
+                
+                // 3. 渲染 tooltip（最顶层，不影响事件分发）
+                if (tooltipVisible_ && tooltipOverlay_) {
+                    canvas->save();
+                    canvas->resetMatrix();
+                    tooltipOverlay_->render(canvas);
                     canvas->restore();
                 }
             }
@@ -198,9 +213,6 @@ void LiteWindow::SetFocusedContainer(liteDui::LiteContainer* container)
     }
 }
 
-// 全局鼠标追踪指针（用于 enter/exit 事件）
-static liteDui::LiteContainer *g_lastMouseInsideContainer = nullptr;
-
 // 辅助函数：判断 target 是否是 root 本身或其后代
 static bool isDescendantOfOrSelf(liteDui::LiteContainer *target, liteDui::LiteContainer *root)
 {
@@ -274,6 +286,62 @@ std::shared_ptr<liteDui::LiteContainer> LiteWindow::getTopOverlay() const
     return overlays_.empty() ? nullptr : overlays_.back();
 }
 
+// Tooltip 管理实现
+void LiteWindow::updateTooltip(liteDui::LiteContainer* currentHover)
+{
+    if (currentHover && currentHover->hasTooltip()) {
+        if (tooltipTarget_ != currentHover) {
+            // 悬停目标变了，重新开始计时
+            hideTooltip();
+            tooltipTarget_ = currentHover;
+            hoverStart_ = std::chrono::steady_clock::now();
+        } else if (!tooltipVisible_) {
+            // 同一个目标，检查是否超过延迟
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - hoverStart_).count();
+            if (elapsed >= kTooltipDelayMs) {
+                showTooltip();
+            }
+        }
+    } else {
+        // 当前控件没有 tooltip，隐藏
+        if (tooltipTarget_ || tooltipVisible_) {
+            hideTooltip();
+            tooltipTarget_ = nullptr;
+        }
+    }
+}
+
+void LiteWindow::showTooltip()
+{
+    if (!tooltipTarget_ || !tooltipTarget_->hasTooltip()) return;
+    
+    if (!tooltipOverlay_) {
+        tooltipOverlay_ = std::make_shared<liteDui::LiteTooltipOverlay>();
+    }
+    
+    float anchorX = tooltipTarget_->getAbsoluteLeft();
+    float anchorY = tooltipTarget_->getAbsoluteTop();
+    float anchorW = tooltipTarget_->getLayoutWidth();
+    float anchorH = tooltipTarget_->getLayoutHeight();
+    
+    tooltipOverlay_->show(
+        tooltipTarget_->getTooltip(),
+        anchorX, anchorY, anchorW, anchorH,
+        static_cast<float>(width_), static_cast<float>(height_));
+    
+    tooltipVisible_ = true;
+    if (rootContainer_) rootContainer_->markDirty();
+}
+
+void LiteWindow::hideTooltip()
+{
+    if (tooltipVisible_) {
+        tooltipVisible_ = false;
+        if (rootContainer_) rootContainer_->markDirty();
+    }
+}
+
 void *LiteWindow::getWindowId()
 {
     if (!window_)
@@ -313,8 +381,6 @@ void LiteWindow::WindowCloseCallback(GLFWwindow *window)
 {
     glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
-
-// g_lastMouseInsideContainer 已在前面声明
 
 static liteDui::LiteContainer *findDeepestContainerAtPosition(liteDui::LiteContainer *container, float x, float y, float &subx, float &suby)
 {
@@ -392,6 +458,9 @@ void LiteWindow::MousePosCallback(GLFWwindow *window, double xpos, double ypos)
         auto topOverlay = win->getTopOverlay();
         if (topOverlay) {
             dispatchMouseEvent(win, topOverlay.get(), event, true);
+            // overlay 激活时隐藏 tooltip
+            win->hideTooltip();
+            win->tooltipTarget_ = nullptr;
             return;
         }
     }
@@ -399,12 +468,21 @@ void LiteWindow::MousePosCallback(GLFWwindow *window, double xpos, double ypos)
     if (win->rootContainer_) {
         dispatchMouseEvent(win, win->rootContainer_.get(), event, true);
     }
+    
+    // 鼠标移动时，如果已经显示了 tooltip 且目标没变，保持显示
+    // 如果目标变了，updateTooltip 会在 Render 中处理重置
 }
 
 void LiteWindow::MouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
 {
     auto win = static_cast<LiteWindow *>(glfwGetWindowUserPointer(window));
     if (!win) return;
+    
+    // 鼠标按下时隐藏 tooltip
+    if (action == GLFW_PRESS) {
+        win->hideTooltip();
+        win->tooltipTarget_ = nullptr;
+    }
     
     double xpos, ypos;
     glfwGetCursorPos(window, &xpos, &ypos);

@@ -56,6 +56,7 @@ public:
         auto nameInput = std::make_shared<LiteInput>("Enter username...");
         nameInput->setWidth(LayoutValue::Percent(100));
         nameInput->setHeight(36);
+        nameInput->setTooltip("请输入您的用户名");
         content->addChild(nameInput);
 
         auto pwdLabel = std::make_shared<LiteLabel>("Password:");
@@ -66,6 +67,7 @@ public:
         passwordInput->setWidth(LayoutValue::Percent(100));
         passwordInput->setHeight(36);
         passwordInput->setInputType(InputType::Password);
+        passwordInput->setTooltip("密码至少6位字符");
         content->addChild(passwordInput);
 
         auto rememberCheckbox = std::make_shared<LiteCheckbox>("Remember me");
@@ -524,6 +526,7 @@ private:
         msgBoxBtn->setHeight(36);
         msgBoxBtn->setNormalBackgroundColor(Color::fromRGB(66, 133, 244));
         msgBoxBtn->setNormalTextColor(Color::White());
+        msgBoxBtn->setTooltip("弹出一个消息框");
         msgBoxBtn->setOnClick([this](const MouseEvent& e) {
             auto msgBox = LiteMessageBox::information("Info", "This is a LiteMessageBox!");
             msgBox->setWidth(LayoutValue::Percent(100));
@@ -539,6 +542,7 @@ private:
         dialogBtn->setHeight(36);
         dialogBtn->setNormalBackgroundColor(Color::fromRGB(76, 175, 80));
         dialogBtn->setNormalTextColor(Color::White());
+        dialogBtn->setTooltip("打开一个对话框");
         dialogBtn->setOnClick([this](const MouseEvent& e) {
             auto dialog = std::make_shared<LiteDialog>();
             dialog->setTitle("LiteDialog Demo");
@@ -557,6 +561,7 @@ private:
         menuBtn->setHeight(36);
         menuBtn->setNormalBackgroundColor(Color::fromRGB(156, 39, 176));
         menuBtn->setNormalTextColor(Color::White());
+        menuBtn->setTooltip("显示右键菜单");
         menuBtn->setOnClick([this, menuBtn](const MouseEvent& e) {
             if (!contextMenu_) {
                 contextMenu_ = std::make_shared<LiteMenu>();
@@ -579,6 +584,7 @@ private:
         exitBtn->setHeight(36);
         exitBtn->setNormalBackgroundColor(Color::fromRGB(244, 67, 54));
         exitBtn->setNormalTextColor(Color::White());
+        exitBtn->setTooltip("退出应用程序");
         exitBtn->setOnClick([](const MouseEvent& e) {
             exit(0);
         });

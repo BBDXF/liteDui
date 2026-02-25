@@ -50,6 +50,11 @@ public:
     const std::string& getFontFamily() const { return m_fontFamily; }
     TextAlign getTextAlign() const { return m_textAlign; }
 
+    // Tooltip 属性
+    void setTooltip(const std::string& tooltip) { m_tooltip = tooltip; }
+    const std::string& getTooltip() const { return m_tooltip; }
+    bool hasTooltip() const { return !m_tooltip.empty(); }
+
     // 重写渲染函数
     void render(SkCanvas* canvas) override;
 
@@ -115,6 +120,9 @@ protected:
     float m_fontSize = 14.0f;
     std::string m_fontFamily = LITE_DEFAULT_FONT_FAMILY;
     TextAlign m_textAlign = TextAlign::Left;
+
+    // Tooltip 属性
+    std::string m_tooltip;
 
     // Window 引用
     LiteWindow* m_window = nullptr;

@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 #include <cstddef>
+#include <chrono>
 #include "lite_common.h"
 
 // 前向声明
@@ -12,6 +13,7 @@ namespace liteDui {
     class LiteSkiaRenderer;
     class LiteContainer;
     class LiteWindowManager;
+    class LiteTooltipOverlay;
 }
 
 /**
@@ -105,6 +107,11 @@ public:
     int getWidth() const { return width_; }
     int getHeight() const { return height_; }
 
+    // Tooltip 管理
+    void updateTooltip(liteDui::LiteContainer* currentHover);
+    void showTooltip();
+    void hideTooltip();
+
 private:
     int width_;
     int height_;
@@ -115,6 +122,13 @@ private:
     std::shared_ptr<liteDui::LiteContainer> rootContainer_; // 根容器
     liteDui::LiteContainer* focusedContainer_ = nullptr; // 当前焦点控件
     std::vector<std::shared_ptr<liteDui::LiteContainer>> overlays_; // overlay 栈
+
+    // Tooltip 管理
+    liteDui::LiteContainer* tooltipTarget_ = nullptr;
+    std::chrono::steady_clock::time_point hoverStart_;
+    bool tooltipVisible_ = false;
+    std::shared_ptr<liteDui::LiteTooltipOverlay> tooltipOverlay_;
+    static constexpr int kTooltipDelayMs = 500;
 
     /**
      * @brief 获取平台特定的窗口ID
