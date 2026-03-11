@@ -24,6 +24,8 @@
 #include "lite_menu.h"
 #include "lite_dialog.h"
 #include "lite_message_box.h"
+#include "lite_file_dialog.h"
+#include "lite_color_picker.h"
 #include <iostream>
 #include <memory>
 
@@ -390,8 +392,119 @@ public:
     }
 };
 
-// ==================== 主应用类 ====================
 using LiteWindowPtr = std::shared_ptr<LiteWindow>;
+// ==================== 对话框面板 ====================
+class DialogsPanel : public DemoPanel {
+    std::shared_ptr<LiteWindow> window_;
+    std::shared_ptr<LiteLabel> statusLabel_;
+
+public:
+    void setWindow(std::shared_ptr<LiteWindow> window) { window_ = window; }
+    void setStatusLabel(std::shared_ptr<LiteLabel> label) { statusLabel_ = label; }
+
+    LiteContainerPtr create() override {
+        auto content = std::make_shared<LiteContainer>();
+        content->setBackgroundColor(Color::White());
+        content->setFlexDirection(FlexDirection::Column);
+        content->setPadding(EdgeInsets::All(15));
+        content->setGap(12);
+        content->setWidth(LayoutValue::Percent(100));
+        content->setFlexGrow(1);
+
+        // 标题
+        auto title = std::make_shared<LiteLabel>("Dialog Controls:");
+        title->setHeight(20);
+        title->setTextColor(Color::fromRGB(33, 33, 33));
+        content->addChild(title);
+
+        // FileDialog 按钮
+        auto fileDialogBtn = std::make_shared<LiteButton>("Open File Dialog");
+        fileDialogBtn->setWidth(LayoutValue::Percent(100));
+        fileDialogBtn->setHeight(36);
+        fileDialogBtn->setNormalBackgroundColor(Color::fromRGB(33, 150, 243));
+        fileDialogBtn->setNormalTextColor(Color::White());
+        fileDialogBtn->setTooltip("打开文件选择对话框");
+        fileDialogBtn->setOnClick([this](const MouseEvent& e) {
+            auto fileDialog = std::make_shared<LiteFileDialog>();
+            fileDialog->setTitle("Select a File");
+            fileDialog->setMode(FileDialogMode::OpenFile);
+            fileDialog->setOnAccepted([this, fileDialog]() {
+                if (statusLabel_) {
+                    statusLabel_->setText("Selected: " + fileDialog->getSelectedPath());
+                }
+            });
+            fileDialog->show(window_.get());
+        });
+        content->addChild(fileDialogBtn);
+
+        // SaveFile Dialog 按钮
+        auto saveDialogBtn = std::make_shared<LiteButton>("Save File Dialog");
+        saveDialogBtn->setWidth(LayoutValue::Percent(100));
+        saveDialogBtn->setHeight(36);
+        saveDialogBtn->setNormalBackgroundColor(Color::fromRGB(76, 175, 80));
+        saveDialogBtn->setNormalTextColor(Color::White());
+        saveDialogBtn->setTooltip("打开保存文件对话框");
+        saveDialogBtn->setOnClick([this](const MouseEvent& e) {
+            auto saveDialog = std::make_shared<LiteFileDialog>();
+            saveDialog->setTitle("Save File As");
+            saveDialog->setMode(FileDialogMode::SaveFile);
+            saveDialog->setOnAccepted([this, saveDialog]() {
+                if (statusLabel_) {
+                    statusLabel_->setText("Save to: " + saveDialog->getSelectedPath());
+                }
+            });
+            saveDialog->show(window_.get());
+        });
+        content->addChild(saveDialogBtn);
+
+        // Folder Dialog 按钮
+        auto folderDialogBtn = std::make_shared<LiteButton>("Open Folder Dialog");
+        folderDialogBtn->setWidth(LayoutValue::Percent(100));
+        folderDialogBtn->setHeight(36);
+        folderDialogBtn->setNormalBackgroundColor(Color::fromRGB(255, 152, 0));
+        folderDialogBtn->setNormalTextColor(Color::White());
+        folderDialogBtn->setTooltip("打开文件夹选择对话框");
+        folderDialogBtn->setOnClick([this](const MouseEvent& e) {
+            auto folderDialog = std::make_shared<LiteFileDialog>();
+            folderDialog->setTitle("Select a Folder");
+            folderDialog->setMode(FileDialogMode::OpenFolder);
+            folderDialog->setOnAccepted([this, folderDialog]() {
+                if (statusLabel_) {
+                    statusLabel_->setText("Selected folder: " + folderDialog->getSelectedPath());
+                }
+            });
+            folderDialog->show(window_.get());
+        });
+        content->addChild(folderDialogBtn);
+
+        // ColorPicker 按钮
+        auto colorPickerBtn = std::make_shared<LiteButton>("Color Picker");
+        colorPickerBtn->setWidth(LayoutValue::Percent(100));
+        colorPickerBtn->setHeight(36);
+        colorPickerBtn->setNormalBackgroundColor(Color::fromRGB(156, 39, 176));
+        colorPickerBtn->setNormalTextColor(Color::White());
+        colorPickerBtn->setTooltip("打开颜色选择器");
+        colorPickerBtn->setOnClick([this](const MouseEvent& e) {
+            auto colorPicker = std::make_shared<LiteColorPicker>();
+            colorPicker->setOnAccepted([this, colorPicker]() {
+                if (statusLabel_) {
+                    Color color = colorPicker->getColor();
+                    char buf[64];
+                    snprintf(buf, sizeof(buf), "Selected color: RGB(%d, %d, %d)",
+                             (int)(color.r * 255), (int)(color.g * 255), (int)(color.b * 255));
+                    statusLabel_->setText(buf);
+                }
+            });
+            colorPicker->show(window_.get());
+        });
+        content->addChild(colorPickerBtn);
+
+        return content;
+    }
+};
+
+// ==================== 主应用类 ====================
+
 
 class GuiDemoApp {
     LiteWindowManager manager_;
@@ -409,6 +522,7 @@ class GuiDemoApp {
     ListPanel listPanel_;
     ScrollViewPanel scrollViewPanel_;
     ImagePanel imagePanel_;
+    DialogsPanel dialogsPanel_;
 
 public:
     bool init() {
@@ -419,6 +533,10 @@ public:
         }
 
         createUI();
+
+        // 设置 DialogsPanel 的依赖
+        dialogsPanel_.setWindow(window_);
+        dialogsPanel_.setStatusLabel(statusLabel_);
         window_->SetRootContainer(root_);
         return true;
     }
@@ -428,6 +546,7 @@ public:
         std::cout << "  - LiteLabel, LiteProgressBar, LiteSlider, LiteComboBox" << std::endl;
         std::cout << "  - LiteTreeView, LiteTable, LiteList, LiteScrollView" << std::endl;
         std::cout << "  - LiteImage, LiteMenu, LiteDialog, LiteMessageBox" << std::endl;
+        std::cout << "  - LiteFileDialog, LiteColorPicker, LiteTooltip" << std::endl;
         manager_.Run();
     }
 
@@ -478,6 +597,7 @@ private:
         tabView->addTab("Login", loginPanel_.create());
         tabView->addTab("Settings", settingsPanel_.create());
         tabView->addTab("Controls", newControlsPanel_.create());
+        tabView->addTab("Dialogs", dialogsPanel_.create());
         tabView->addTab("List", listPanel_.create());
         tabView->addTab("Scroll", scrollViewPanel_.create());
         tabView->addTab("Image", imagePanel_.create());

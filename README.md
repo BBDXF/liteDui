@@ -37,8 +37,6 @@ Simple Direct User Interface Framework. 虽然叫lite GUI, 但是一点也不简
 
 
 ## 已实现控件
-
-| 分类 | 控件 | 说明 |
 |------|------|------|
 | 基础设施 | LiteLayout | Yoga Flexbox 布局基类 |
 | | LiteContainer | 容器基类，支持背景、边框、文本绘制 |
@@ -63,7 +61,11 @@ Simple Direct User Interface Framework. 虽然叫lite GUI, 但是一点也不简
 | | LiteMenu / LiteMenuBar | 菜单系统，子菜单/快捷键/可勾选项 |
 | 弹出层 | LiteDialog | 模态对话框基类 |
 | | LiteMessageBox | 消息框，Information/Warning/Error/Question 图标 |
+| | LiteTooltip | 工具提示，鼠标悬停显示 |
+| | LiteFileDialog | 文件/文件夹选择对话框，OpenFile/OpenFolder/SaveFile 模式 |
+| | LiteColorPicker | 颜色选择对话框，HSV 色彩空间，RGB/Hex 输入 |
 
+**控件统计：** 5 个基础设施 + 6 个基础控件 + 10 个高级控件 + 5 个弹出层 = **26 个控件**
 ![demo04](demo04.gif)
 
 ## 实施时间线
@@ -75,26 +77,87 @@ Simple Direct User Interface Framework. 虽然叫lite GUI, 但是一点也不简
 - [x] 基础组件系统 (Container, Button, Input)
 - [x] 简单示例应用
 
-### 第二阶段 (4-6周)
+### 第二阶段 (4-6周) - 进行中
 
-- [x] CSS 样式系统
-- [x] 事件处理系统完善
-- [x] 高级组件实现 (ScrollView, Image, Dialog, Menu, ComboBox, TabView, TreeView, Table, List, Slider, ProgressBar，tooltips 等)
-- [x] 性能优化
-- [ ] 文件/文件夹选择/保存，颜色选择，字体选择
-- [ ] SVG支持，图标/图片资源管理
-- [ ] Xml Form Builder
-- [ ] CSS Style Parser 
+- [x] CSS 样式系统（基础颜色、边框、字体）
+- [x] 事件处理系统完善（鼠标、键盘、滚轮、焦点）
+- [x] 高级组件实现
+  - [x] LiteLabel - 文本标签
+  - [x] LiteScrollView - 可滚动容器
+  - [x] LiteImage - 图片控件
+  - [x] LiteCheckbox - 复选框
+  - [x] LiteRadioButton - 单选按钮
+  - [x] LiteList - 列表控件
+  - [x] LiteTable - 表格控件
+  - [x] LiteTreeView - 树形控件
+  - [x] LiteComboBox - 下拉组合框
+  - [x] LiteTabView - 标签页
+  - [x] LiteSlider - 滑块
+  - [x] LiteProgressBar - 进度条
+  - [x] LiteGroupBox - 分组框
+  - [x] LiteMenu/LiteMenuBar - 菜单系统
+  - [x] LiteDialog - 对话框基类
+  - [x] LiteMessageBox - 消息框
+  - [x] LiteTooltip - 工具提示
+- [x] 性能优化（脏标记、增量渲染）
+ [x] 文件对话框系统
+  - [x] LiteFileDialog - 文件/文件夹选择对话框（支持 OpenFile/OpenFolder/SaveFile 三种模式）
+ [x] 颜色选择器
+  - [x] LiteColorPicker - 颜色选择对话框（HSV 色彩空间 + RGB/Hex 输入）
+ [ ] 字体选择器
+  - [ ] FontDialog - 字体选择对话框
+- [ ] SVG 支持
+  - [ ] SVG 图像渲染
+  - [ ] 图标/图片资源管理系统
+- [ ] XML Form Builder
+  - [ ] XML 布局解析器
+  - [ ] 声明式 UI 构建
+- [ ] CSS Style Parser
+  - [ ] CSS 样式表解析
+  - [ ] 样式继承和层叠
 
-### 第三阶段 (3-4周)
+### 第三阶段 (3-4周) - 未开始
 
-- [ ] Theme
+- [ ] 主题系统
+  - [ ] 深色/浅色主题
+  - [ ] 主题切换机制
+  - [ ] 自定义主题支持
 - [ ] C API
+  - [ ] 导出 C 语言接口
+  - [ ] 跨语言绑定支持
+
+---
+
+## 项目进度
+
+**第一阶段：** ✅ 100% 完成
+
+**第二阶段：** 🚧 约 65% 完成
+ ✅ 核心控件系统（26 个控件全部实现）
+- ✅ 事件处理和渲染优化
+ ✅ 对话框扩展（文件/颜色选择完成，字体选择待实现）
+- ❌ 资源管理（SVG/主题/XML/CSS 解析）
+
+**第三阶段：** ⏳ 0% 完成
+
+---
 - [ ] React Native API
-- [ ] QuickJS 集成 (可选)
-- [ ] 资源管理 (image/font/css)
+  - [ ] React Native 风格 API 设计
+- [ ] QuickJS 集成（可选）
+  - [ ] JavaScript 引擎嵌入
+  - [ ] JS 脚本化 GUI
+- [ ] 资源管理系统
+  - [ ] 统一资源加载
+  - [ ] 资源缓存机制
+  - [ ] 异步加载支持
 - [ ] 多平台支持扩展
+  - [ ] Windows 平台适配
+  - [ ] macOS 平台适配
+  - [ ] Android 平台适配
 - [ ] 文档和示例
+  - [ ] API 文档完善
+  - [ ] 更多示例应用
+  - [ ] 开发者指南
 
 
 
